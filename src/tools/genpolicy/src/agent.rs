@@ -16,3 +16,12 @@ pub struct SerializedFsGroup {
     pub group_id: u32,
     pub group_change_policy: u32,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Device {
+    pub id: String,
+    pub type_: String,
+    pub vm_path: String,
+    pub container_path: String,
+    pub options: Vec<String>,
+}  
