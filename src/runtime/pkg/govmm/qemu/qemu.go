@@ -395,9 +395,7 @@ func (object Object) QemuParams(config *Config) []string {
 		if object.SnpCertsPath != "" {
 			objectParams = append(objectParams, fmt.Sprintf("certs-path=%s", object.SnpCertsPath))
 		}
-
-		driveParams = append(driveParams, "if=pflash,format=raw,readonly=on")
-		driveParams = append(driveParams, fmt.Sprintf("file=%s", object.File))
+		config.Bios = object.File
 	case SecExecGuest:
 		objectParams = append(objectParams, string(object.Type))
 		objectParams = append(objectParams, fmt.Sprintf("id=%s", object.ID))
