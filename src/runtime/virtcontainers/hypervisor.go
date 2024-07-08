@@ -545,7 +545,7 @@ type HypervisorConfig struct {
 	// NumVCPUs specifies default number of vCPUs for the VM.
 	NumVCPUsF float32
 
-	//DefaultMaxVCPUs specifies the maximum number of vCPUs for the VM.
+	// DefaultMaxVCPUs specifies the maximum number of vCPUs for the VM.
 	DefaultMaxVCPUs uint32
 
 	// DefaultMem specifies default memory size in MiB for the VM.
@@ -673,6 +673,10 @@ type HypervisorConfig struct {
 
 	// Initdata defines the initdata passed into guest when CreateVM
 	Initdata string
+
+	// Policy text, for sandboxes created using a valid io.katacontainers.config.agent.policy
+	// annotation
+	AgentPolicy string
 }
 
 // vcpu mapping from vcpu number to thread number
@@ -1027,8 +1031,8 @@ type guestProtection uint8
 const (
 	noneProtection guestProtection = iota
 
-	//Intel Trust Domain Extensions
-	//https://software.intel.com/content/www/us/en/develop/articles/intel-trust-domain-extensions.html
+	// Intel Trust Domain Extensions
+	// https://software.intel.com/content/www/us/en/develop/articles/intel-trust-domain-extensions.html
 	// Exclude from lint checking for it won't be used on arm64 code
 	tdxProtection
 

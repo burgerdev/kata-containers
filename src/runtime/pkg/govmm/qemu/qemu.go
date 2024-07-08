@@ -320,6 +320,11 @@ type Object struct {
 
 	// QgsPort defines Intel Quote Generation Service port exposed from the host
 	QgsPort uint32
+
+	// TEEConfigData represents opaque binary data attached to a TEE and typically used
+	// for Guest attestation. This is only relevant for sev-snp-guest and tdx-guest
+	// objects and is encoded in the format expected by QEMU for each TEE type.
+	TEEConfigData string
 }
 
 // Valid returns true if the Object structure is valid and complete.
@@ -395,6 +400,9 @@ func (object Object) QemuParams(config *Config) []string {
 		if object.SnpCertsPath != "" {
 			objectParams = append(objectParams, fmt.Sprintf("certs-path=%s", object.SnpCertsPath))
 		}
+		if len(object.TEEConfigData) > 0 {
+			objectParams = append(objectParams, fmt.Sprintf("host-data=%s", object.TEEConfigData))
+		}
 		config.Bios = object.File
 	case SecExecGuest:
 		objectParams = append(objectParams, string(object.Type))
@@ -435,6 +443,7 @@ type SocketAddress struct {
 type TdxQomObject struct {
 	QomType               string        `json:"qom-type"`
 	Id                    string        `json:"id"`
+	SeptVEDisable         *bool         `json:"sept-ve-disable,omitempty"`
 	MrConfigId            string        `json:"mrconfigid,omitempty"`
 	MrOwner               string        `json:"mrowner,omitempty"`
 	MrOwnerConfig         string        `json:"mrownerconfig,omitempty"`
@@ -469,6 +478,7 @@ func prepareTDXObject(object Object) string {
 	tdxObject := TdxQomObject{
 		string(object.Type), // qom-type
 		object.ID,           // id
+		nil,                 // sept-ve-disable
 		"",                  // mrconfigid
 		"",                  // mrowner
 		"",                  // mrownerconfig
@@ -476,7 +486,12 @@ func prepareTDXObject(object Object) string {
 		nil}
 
 	if object.Debug {
-		*tdxObject.Debug = true
+		t := true
+		tdxObject.Debug = &t
+	}
+
+	if len(object.TEEConfigData) > 0 {
+		tdxObject.MrConfigId = object.TEEConfigData
 	}
 
 	return tdxObject.String()
