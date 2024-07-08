@@ -191,7 +191,18 @@ func (q *qemuAmd64) cpuModel() string {
 	protection, err := availableGuestProtection()
 	if err == nil {
 		if protection == snpProtection && q.snpGuest {
-			cpuModel = "EPYC-v4"
+			// Decide which CPU model line to emulate based on the host CPU's
+			// model value.
+			switch cpuid.DisplayModel {
+			case 0x01:
+				cpuModel = "EPYC-Milan"
+			case 0x11:
+				cpuModel = "EPYC-Genoa"
+			default:
+				// Fall back to a generic CPU.
+				cpuModel = "EPYC-v4"
+			}
+
 		}
 	}
 
