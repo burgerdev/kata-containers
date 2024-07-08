@@ -9,6 +9,8 @@ package virtcontainers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -280,7 +282,7 @@ func (q *qemuAmd64) enableProtection() error {
 }
 
 // append protection device
-func (q *qemuAmd64) appendProtectionDevice(devices []govmmQemu.Device, firmware, firmwareVolume string) ([]govmmQemu.Device, string, error) {
+func (q *qemuAmd64) appendProtectionDevice(devices []govmmQemu.Device, firmware, firmwareVolume string, agentPolicy string) ([]govmmQemu.Device, string, error) {
 	if q.sgxEPCSize != 0 {
 		devices = append(devices,
 			govmmQemu.Object{
@@ -305,6 +307,7 @@ func (q *qemuAmd64) appendProtectionDevice(devices []govmmQemu.Device, firmware,
 				Debug:          false,
 				File:           firmware,
 				FirmwareVolume: firmwareVolume,
+				TEEConfigData:  tdxMRCONFIGID(agentPolicy),
 			}), "", nil
 	case sevProtection:
 		return append(devices,
@@ -326,6 +329,7 @@ func (q *qemuAmd64) appendProtectionDevice(devices []govmmQemu.Device, firmware,
 				CBitPos:         cpuid.AMDMemEncrypt.CBitPosition,
 				ReducedPhysBits: 1,
 				SnpCertsPath:    q.snpCertsPath,
+				TEEConfigData:   snpHostData(agentPolicy),
 			}), "", nil
 	case noneProtection:
 
@@ -334,4 +338,37 @@ func (q *qemuAmd64) appendProtectionDevice(devices []govmmQemu.Device, firmware,
 	default:
 		return devices, "", fmt.Errorf("Unsupported guest protection technology: %v", q.protection)
 	}
+}
+
+// return the policy hash in the host-data format expected by QEMU for SEV-SNP.
+func snpHostData(policy string) string {
+	if len(policy) == 0 {
+		return ""
+	}
+
+	h := sha256.New()
+	h.Write([]byte(policy))
+	hash := h.Sum(nil)
+	hvLogger.WithField("hash", hash).Info("policy hash")
+
+	encoded_hash := make([]byte, base64.StdEncoding.EncodedLen(len(hash)))
+	base64.StdEncoding.Encode(encoded_hash, hash)
+	return string(encoded_hash)
+}
+
+// return the policy hash in the mrconfigid format expected by QEMU for TDX.
+func tdxMRCONFIGID(policy string) string {
+	if len(policy) == 0 {
+		return ""
+	}
+
+	h := sha256.New()
+	h.Write([]byte(policy))
+	hash := h.Sum(nil)
+	hvLogger.WithField("hash", hash).Info("policy hash")
+
+	// Pad the hash to 48-bytes.
+	mrConfigId := append(hash, (&[16]byte{})[:]...)
+
+	return base64.StdEncoding.EncodeToString(mrConfigId)
 }

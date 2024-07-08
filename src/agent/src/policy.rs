@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-use anyhow::Result;
+use anyhow::{bail, ensure, Result};
 use protobuf::MessageDyn;
+use sha2::{Digest, Sha256};
 use slog::Drain;
 use tokio::io::AsyncWriteExt;
 
 use crate::rpc::ttrpc_error;
+use crate::sev::get_snp_host_data;
+use crate::tdx::get_tdx_mrconfigid;
 use crate::AGENT_POLICY;
 
 static POLICY_LOG_FILE: &str = "/tmp/policy.txt";
@@ -137,6 +140,7 @@ impl AgentPolicy {
 
     /// Replace the Policy in regorus.
     pub async fn set_policy(&mut self, policy: &str) -> Result<()> {
+        verify_policy_digest(policy)?;
         self.engine = Self::new_engine();
         self.engine
             .add_policy("agent_policy".to_string(), policy.to_string())?;
@@ -183,4 +187,44 @@ impl AgentPolicy {
         };
         Ok(())
     }
+}
+
+fn verify_policy_digest(policy: &str) -> Result<()> {
+    if let Ok(expected_digest) = get_tdx_mrconfigid() {
+        info!(sl!(), "policy: TDX MrConfigId ({:?})", expected_digest);
+
+        // The MrConfigId used with TDX is longer than the host-data field used
+        // with SNP, but we don't want to use different hashes for different
+        // platforms. Instead we truncate the MrConfigId to 256-bit and always
+        // use sha-256.
+        let (expected_digest, trailing_data) =
+            expected_digest.split_at(<Sha256 as Digest>::output_size());
+
+        ensure!(
+            trailing_data.iter().all(|&d| d == 0),
+            "hash isn't padded with zeros: MrConfigId={expected_digest:?}"
+        );
+
+        info!(sl!(), "policy: TDX expected digest ({:?})", expected_digest);
+        verify_sha_256(policy, expected_digest)
+    } else if let Ok(expected_digest) = get_snp_host_data() {
+        info!(sl!(), "policy: SNP expected digest ({:?})", expected_digest);
+        verify_sha_256(policy, expected_digest.as_slice())
+    } else {
+        bail!("couldn't find host data to verify the integrity of the policy");
+    }
+}
+
+pub fn verify_sha_256(policy: &str, expected_digest: &[u8]) -> Result<()> {
+    let mut hasher = Sha256::new();
+    hasher.update(policy.as_bytes());
+    let digest = hasher.finalize();
+    info!(sl!(), "policy: calculated digest ({:?})", digest);
+    ensure!(
+        expected_digest == digest.as_slice(),
+        "policy: rejecting unexpected digest ({:?}), expected ({:?})",
+        digest,
+        expected_digest
+    );
+    Ok(())
 }

@@ -320,6 +320,11 @@ type Object struct {
 
 	// QgsPort defines Intel Quote Generation Service port exposed from the host
 	QgsPort uint32
+
+	// TEEConfigData represents opaque binary data attached to a TEE and typically used
+	// for Guest attestation. This is only relevant for sev-snp-guest and tdx-guest
+	// objects and is encoded in the format expected by QEMU for each TEE type.
+	TEEConfigData string
 }
 
 // Valid returns true if the Object structure is valid and complete.
@@ -395,6 +400,9 @@ func (object Object) QemuParams(config *Config) []string {
 		if object.SnpCertsPath != "" {
 			objectParams = append(objectParams, fmt.Sprintf("certs-path=%s", object.SnpCertsPath))
 		}
+		if len(object.TEEConfigData) > 0 {
+			objectParams = append(objectParams, fmt.Sprintf("host-data=%s", object.TEEConfigData))
+		}
 		config.Bios = object.File
 	case SecExecGuest:
 		objectParams = append(objectParams, string(object.Type))
@@ -435,6 +443,10 @@ type SocketAddress struct {
 type TdxQomObject struct {
 	QomType               string        `json:"qom-type"`
 	Id                    string        `json:"id"`
+	SeptVEDisable         *bool         `json:"sept-ve-disable,omitempty"`
+	MRConfigID            string        `json:"mrconfigid,omitempty"`
+	MROwner               string        `json:"mrowner,omitempty"`
+	MROwnerConfig         string        `json:"mrownerconfig,omitempty"`
 	QuoteGenerationSocket SocketAddress `json:"quote-generation-socket"`
 	Debug                 *bool         `json:"debug,omitempty"`
 }
@@ -463,10 +475,19 @@ func (this *TdxQomObject) String() string {
 
 func prepareObjectWithTdxQgs(object Object) string {
 	qgsSocket := SocketAddress{"vsock", fmt.Sprint(VsockHostCid), fmt.Sprint(object.QgsPort)}
-	tdxObject := TdxQomObject{string(object.Type), object.ID, qgsSocket, nil}
+	tdxObject := TdxQomObject{
+		QomType:               string(object.Type),
+		Id:                    object.ID,
+		QuoteGenerationSocket: qgsSocket,
+	}
 
 	if object.Debug {
-		*tdxObject.Debug = true
+		t := true
+		tdxObject.Debug = &t
+	}
+
+	if len(object.TEEConfigData) > 0 {
+		tdxObject.MRConfigID = object.TEEConfigData
 	}
 
 	return tdxObject.String()
