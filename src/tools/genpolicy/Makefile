@@ -25,6 +25,7 @@ vendor:
 	cargo vendor
 
 test:
+	@RUSTFLAGS="$(EXTRA_RUSTFLAGS) --deny warnings" cargo test --all-targets --all-features --target $(TRIPLE)
 
 install:
 	@RUSTFLAGS="$(EXTRA_RUSTFLAGS) --deny warnings" cargo install --locked --target $(TRIPLE) --path .
