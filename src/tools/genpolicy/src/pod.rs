@@ -21,6 +21,7 @@ use log::{debug, warn};
 use protocols::agent;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 /// See Reference / Kubernetes API / Workload Resources / Pod.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -295,6 +296,9 @@ struct SecurityContext {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     seccompProfile: Option<SeccompProfile>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sysctls: Option<Vec<Sysctl>>,
 }
 
 /// See Reference / Kubernetes API / Workload Resources / Pod.
@@ -305,6 +309,13 @@ struct SeccompProfile {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     localhostProfile: Option<String>,
+}
+
+/// See Reference / Kubernetes API / Workload Resources / Pod.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Sysctl {
+    name: String,
+    value: String,
 }
 
 /// See Reference / Kubernetes API / Workload Resources / Pod.
@@ -696,6 +707,16 @@ impl Container {
 
         commands
     }
+
+    pub fn apply_sysctls(&self, sysctls: &mut HashMap<String, String>) {
+        if let Some(securityContext) = &self.securityContext {
+            if let Some(container_sysctls) = &securityContext.sysctls {
+                for sysctl in container_sysctls {
+                    sysctls.insert(sysctl.name.clone(), sysctl.value.clone());
+                }
+            }
+        }
+    }
 }
 
 impl EnvFromSource {
@@ -998,6 +1019,7 @@ pub async fn add_pause_container(containers: &mut Vec<Container>, config: &Confi
             capabilities: None,
             runAsUser: None,
             seccompProfile: None,
+            sysctls: None,
         }),
         ..Default::default()
     };
