@@ -27,6 +27,7 @@ use serde_yaml::Value;
 use sha2::{Digest, Sha256};
 use std::boxed;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::Write;
 
@@ -180,14 +181,20 @@ pub struct KataLinux {
     pub Namespaces: Vec<KataLinuxNamespace>,
 
     /// MaskedPaths masks over the provided paths inside the container.
+    #[serde(default)]
     pub MaskedPaths: Vec<String>,
 
     /// ReadonlyPaths sets the provided paths as RO inside the container.
+    #[serde(default)]
     pub ReadonlyPaths: Vec<String>,
 
     /// Devices contains devices to be created inside the container.
     #[serde(default)]
     pub Devices: Vec<KataLinuxDevice>,
+
+    /// Sysctls contains sysctls to be applied inside the container.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub Sysctl: HashMap<String, String>,
 }
 
 /// OCI container LinuxNamespace struct. This struct is similar to the LinuxNamespace
@@ -615,6 +622,9 @@ impl AgentPolicy {
         for default_device in &c_settings.Linux.Devices {
             linux.Devices.push(default_device.clone())
         }
+
+        linux.Sysctl.extend(c_settings.Linux.Sysctl.clone());
+        yaml_container.apply_sysctls(&mut linux.Sysctl);
 
         ContainerPolicy {
             OCI: KataSpec {

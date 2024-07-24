@@ -112,7 +112,6 @@ allow_create_container_input {
     is_null(i_linux.Resources.Network)
     is_null(i_linux.Resources.Pids)
     is_null(i_linux.Seccomp)
-    i_linux.Sysctl == {}
 
     i_process := i_oci.Process
     count(i_process.SelinuxLabel) == 0
@@ -389,6 +388,7 @@ allow_linux(p_oci, i_oci) {
     allow_masked_paths(p_oci, i_oci)
     allow_readonly_paths(p_oci, i_oci)
     allow_linux_devices(p_oci.Linux.Devices, i_oci.Linux.Devices)
+    allow_linux_sysctl(p_oci.Linux, i_oci.Linux)
 
     print("allow_linux: true")
 }
@@ -485,6 +485,23 @@ allow_linux_devices(p_devices, i_devices) {
         i_device.Path == p_device.Path
     }
     print("allow_linux_devices: true")
+}
+
+allow_linux_sysctl(p_linux, i_linux) {
+    print("allow_linux_sysctl 1: start")
+    not i_linux["Sysctl"]
+    print("allow_linux_sysctl 1: true")
+}
+
+allow_linux_sysctl(p_linux, i_linux) {
+    print("allow_linux_sysctl 2: start")
+    p_sysctl := p_linux.Sysctl
+    i_sysctl := i_linux.Sysctl
+    every i_name, i_val in i_sysctl {
+        print("allow_linux_sysctl: i_name =", i_name, "i_val =", i_val)
+        p_sysctl[i_name] == i_val
+    }
+    print("allow_linux_sysctl 2: true")
 }
 
 # Check the consistency of the input "io.katacontainers.pkg.oci.bundle_path"
