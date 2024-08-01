@@ -80,7 +80,7 @@ CreateContainerRequest {
     allow_anno(p_oci, i_oci)
 
     p_storages := p_container.storages
-    allow_by_anno(p_oci, i_oci, p_storages, i_storages)
+    allow_by_anno(p_container, i_oci, i_storages)
 
     p_devices := p_container.devices
     allow_devices(p_devices, i_devices)
@@ -160,47 +160,48 @@ allow_anno_key(i_key, p_oci) {
 
 # Get the value of the "io.kubernetes.cri.sandbox-name" annotation and
 # correlate it with other annotations and process fields.
-allow_by_anno(p_oci, i_oci, p_storages, i_storages) {
+allow_by_anno(p_container, i_oci, i_storages) {
     print("allow_by_anno 1: start")
 
     s_name := "io.kubernetes.cri.sandbox-name"
 
-    not p_oci.Annotations[s_name]
+    not p_container.OCI.Annotations[s_name]
 
     i_s_name := i_oci.Annotations[s_name]
     print("allow_by_anno 1: i_s_name =", i_s_name)
 
-    allow_by_sandbox_name(p_oci, i_oci, p_storages, i_storages, i_s_name)
+    allow_by_sandbox_name(p_container, i_oci, i_storages, i_s_name)
 
     print("allow_by_anno 1: true")
 }
-allow_by_anno(p_oci, i_oci, p_storages, i_storages) {
+allow_by_anno(p_container, i_oci, i_storages) {
     print("allow_by_anno 2: start")
 
     s_name := "io.kubernetes.cri.sandbox-name"
 
-    p_s_name := p_oci.Annotations[s_name]
+    p_s_name := p_container.OCI.Annotations[s_name]
     i_s_name := i_oci.Annotations[s_name]
     print("allow_by_anno 2: i_s_name =", i_s_name, "p_s_name =", p_s_name)
 
     allow_sandbox_name(p_s_name, i_s_name)
-    allow_by_sandbox_name(p_oci, i_oci, p_storages, i_storages, i_s_name)
+    allow_by_sandbox_name(p_container, i_oci, i_storages, i_s_name)
 
     print("allow_by_anno 2: true")
 }
 
-allow_by_sandbox_name(p_oci, i_oci, p_storages, i_storages, s_name) {
+allow_by_sandbox_name(p_container, i_oci, i_storages, s_name) {
     print("allow_by_sandbox_name: start")
 
     s_namespace := "io.kubernetes.cri.sandbox-namespace"
 
+    p_oci := p_container.OCI
     p_namespace := p_oci.Annotations[s_namespace]
     i_namespace := i_oci.Annotations[s_namespace]
     print("allow_by_sandbox_name: p_namespace =", p_namespace, "i_namespace =", i_namespace)
     p_namespace == i_namespace
 
     allow_by_container_types(p_oci, i_oci, s_name, p_namespace)
-    allow_by_bundle_or_sandbox_id(p_oci, i_oci, p_storages, i_storages)
+    allow_by_bundle_or_sandbox_id(p_container, i_oci, i_storages)
     allow_process(p_oci, i_oci, s_name)
 
     print("allow_by_sandbox_name: true")
@@ -506,11 +507,12 @@ allow_linux_sysctl(p_linux, i_linux) {
 
 # Check the consistency of the input "io.katacontainers.pkg.oci.bundle_path"
 # and io.kubernetes.cri.sandbox-id" values with other fields.
-allow_by_bundle_or_sandbox_id(p_oci, i_oci, p_storages, i_storages) {
+allow_by_bundle_or_sandbox_id(p_container, i_oci, i_storages) {
     print("allow_by_bundle_or_sandbox_id: start")
 
     key := "io.kubernetes.cri.sandbox-id"
 
+    p_oci := p_container.OCI
     p_regex := p_oci.Annotations[key]
     sandbox_id := i_oci.Annotations[key]
 
@@ -530,8 +532,7 @@ allow_by_bundle_or_sandbox_id(p_oci, i_oci, p_storages, i_storages) {
         allow_mount(p_oci, i_mount, bundle_id, sandbox_id)
     }
 
-    # TODO: enable allow_storages() after fixing https://github.com/kata-containers/kata-containers/issues/8833
-    # allow_storages(p_storages, i_storages, bundle_id, sandbox_id)
+    allow_storages(p_container, i_storages, bundle_id, sandbox_id)
 
     print("allow_by_bundle_or_sandbox_id: true")
 }
@@ -830,30 +831,109 @@ mount_source_allows(p_mount, i_mount, bundle_id, sandbox_id) {
 ######################################################################
 # Create container Storages
 
-allow_storages(p_storages, i_storages, bundle_id, sandbox_id) {
+# Allow image_guest_pull storage
+allow_storages(p_container, i_storages, bundle_id, sandbox_id) {
+    print("allow_storages 1: start")
+    i_count := count(i_storages)
+    print("allow_storages 1: i_count =", i_count)
+    i_count >= 1
+
+    # First storage: image guest pull
+
+    i_storage := i_storages[0]
+    i_storage.driver == "image_guest_pull"
+    i_storage.fstype == "overlay"
+
+    p_mount_point := concat("/", [policy_data.common.cpath, bundle_id, "rootfs"])
+    print("allow_storages 1: i_storage.mount_point =", i_storage.mount_point, "p_mount_point =", p_mount_point)
+    i_storage.mount_point == p_mount_point
+    
+    print("allow_storages 1: p_container.image =", p_container.image, "i_storage.source =", i_storage.source)
+
+    count(i_storage.driver_options) == 1
+    i_driver_option := i_storage.driver_options[0]
+
+    i_driver_options_json := trim_prefix(i_driver_option, "image_guest_pull=")
+    print("allow_storages 1: i_driver_options_json =", i_driver_options_json)
+    i_driver_options := json.unmarshal(i_driver_options_json)
+
+    allow_guest_pull(p_container.image, i_storage.source, i_driver_options)
+
+    # Other storages: local mounts
+
+    every i_storage in array.slice(i_storages, 1, count(i_storages)) {
+        some p_storage in p_container.storages
+        some allowed_driver in ["local", "ephemeral"]
+        p_storage.driver == allowed_driver
+        p_storage.options == i_storage.options
+
+        mount1 := p_storage.mount_point
+        mount2 := replace(mount1, "$(cpath)", policy_data.common.mount_source_cpath)
+        mount3 := replace(mount2, "$(sandbox-id)", sandbox_id)
+        print("allow_mount_point 3: mount3 =", mount3, "i_storage.mount_point =", i_storage.mount_point)
+        regex.match(mount3, i_storage.mount_point)
+    }
+
+    print("allow_storages 1: true")
+}
+
+allow_guest_pull(p_container_image, i_storage_source, i_driver_options) {
+    print("allow_guest_pull 1: start")
+    # pause container is only allowed in the sandbox container.
+    i_driver_options.metadata["io.kubernetes.cri.container-type"] == "sandbox"
+    i_storage_source == "pause"
+    not i_driver_options.metadata["io.kubernetes.cri.image-name"]
+    print("allow_guest_pull 1: true")
+}
+
+allow_guest_pull(p_container_image, i_storage_source, i_driver_options) {
+    print("allow_guest_pull 2: start")
+    # Non-sandbox container images are compared against reference values.
+    i_driver_options.metadata["io.kubernetes.cri.container-type"] == "container"
+    is_same_image(i_storage_source, p_container_image)
+    is_same_image(i_driver_options.metadata["io.kubernetes.cri.image-name"], p_container_image)
+    print("allow_guest_pull 2: true")
+}
+
+is_same_image(a, b) {
+    # Images are the same if their digests are the same.
+    digest_re = "^[^@]+(@.+)?$"
+
+    print("is_same_image: a =", a, "b =", b)
+
+    a_match := regex.find_all_string_submatch_n(digest_re, a, 1)
+    b_match := regex.find_all_string_submatch_n(digest_re, b, 1)
+    a_match[0][1] == b_match[0][1]
+
+    print("is_same_image: true")
+}
+
+# Allow tardev-snapshotter storage
+allow_storages(p_container, i_storages, bundle_id, sandbox_id) {    
+    p_storages := p_container.storages
     p_count := count(p_storages)
     i_count := count(i_storages)
-    print("allow_storages: p_count =", p_count, "i_count =", i_count)
+    print("allow_storages 2: p_count =", p_count, "i_count =", i_count)
 
     p_count == i_count
 
     # Get the container image layer IDs and verity root hashes, from the "overlayfs" storage.
     some overlay_storage in p_storages
     overlay_storage.driver == "overlayfs"
-    print("allow_storages: overlay_storage =", overlay_storage)
+    print("allow_storages 2: overlay_storage =", overlay_storage)
     count(overlay_storage.options) == 2
 
     layer_ids := split(overlay_storage.options[0], ":")
-    print("allow_storages: layer_ids =", layer_ids)
+    print("allow_storages 2: layer_ids =", layer_ids)
 
     root_hashes := split(overlay_storage.options[1], ":")
-    print("allow_storages: root_hashes =", root_hashes)
+    print("allow_storages 2: root_hashes =", root_hashes)
 
     every i_storage in i_storages {
         allow_storage(p_storages, i_storage, bundle_id, sandbox_id, layer_ids, root_hashes)
     }
 
-    print("allow_storages: true")
+    print("allow_storages 2: true")
 }
 
 allow_storage(p_storages, i_storage, bundle_id, sandbox_id, layer_ids, root_hashes) {

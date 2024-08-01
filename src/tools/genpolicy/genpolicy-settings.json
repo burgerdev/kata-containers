@@ -148,7 +148,7 @@
         "emptyDir": {
             "mount_type": "local",
             "mount_source": "^$(cpath)/$(sandbox-id)/rootfs/local/",
-            "mount_point": "^$(cpath)/$(sandbox-id)/local/",
+            "mount_point": "^$(cpath)/$(sandbox-id)/rootfs/local/",
             "driver": "local",
             "source": "local",
             "fstype": "local",
