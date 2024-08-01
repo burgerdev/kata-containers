@@ -9,7 +9,7 @@ use std::path;
 use std::process::Command;
 use std::str;
 
-use protocols::agent::{CopyFileRequest, CreateSandboxRequest};
+use protocols::agent::{CopyFileRequest, CreateContainerRequest, CreateSandboxRequest};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -98,4 +98,9 @@ fn test_copyfile() {
 #[test]
 fn test_create_sandbox() {
     runtests::<CreateSandboxRequest>("createsandbox");
+}
+
+#[test]
+fn test_create_container_guest_pull() {
+    runtests::<CreateContainerRequest>("createcontainer/guest_pull");
 }
