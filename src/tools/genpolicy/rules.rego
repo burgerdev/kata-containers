@@ -823,6 +823,35 @@ mount_source_allows(p_mount, i_mount, bundle_id, sandbox_id) {
 # Storages
 
 allow_storages(p_storages, i_storages, bundle_id, sandbox_id) {
+    # Allows image_guest_pull
+
+    # TODO(burgerdev): continue work between here:
+    # TODO(burgerdev): enumerate allow_storages
+
+    # 8<------------------------------------------------
+
+    # Get the container image layer IDs and verity root hashes, from the "overlayfs" storage.
+    some overlay_storage in p_storages
+    overlay_storage.driver == "overlayfs"
+    print("allow_storages: overlay_storage =", overlay_storage)
+    count(overlay_storage.options) == 2
+
+    layer_ids := split(overlay_storage.options[0], ":")
+    print("allow_storages: layer_ids =", layer_ids)
+
+    root_hashes := split(overlay_storage.options[1], ":")
+    print("allow_storages: root_hashes =", root_hashes)
+
+    every i_storage in i_storages {
+        allow_storage(p_storages, i_storage, bundle_id, sandbox_id, layer_ids, root_hashes)
+    }
+
+    print("allow_storages: true")
+
+    # 8<------------------------------------------------
+}
+
+allow_storages(p_storages, i_storages, bundle_id, sandbox_id) {
     p_count := count(p_storages)
     i_count := count(i_storages)
     print("allow_storages: p_count =", p_count, "i_count =", i_count)

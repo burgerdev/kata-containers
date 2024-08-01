@@ -406,7 +406,7 @@
   },
   {
     "description": "unexpected image for main container",
-    "allowed": true,
+    "allowed": false,
     "request": {
       "container_id": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
       "exec_id": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
