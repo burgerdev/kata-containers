@@ -270,6 +270,9 @@ pub struct ContainerPolicy {
     /// Data compared with req.OCI for CreateContainerRequest calls.
     pub OCI: KataSpec,
 
+    /// Container image reference.
+    image: String,
+
     /// Data compared with req.storages for CreateContainerRequest calls.
     storages: Vec<agent::Storage>,
 
@@ -638,6 +641,7 @@ impl AgentPolicy {
                 Annotations: annotations,
                 Linux: linux,
             },
+            image: yaml_container.image.clone(),
             storages,
             devices,
             sandbox_pidns,
