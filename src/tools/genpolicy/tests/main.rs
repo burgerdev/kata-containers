@@ -101,6 +101,11 @@ fn test_create_sandbox() {
 }
 
 #[test]
+fn test_create_container_guest_pull() {
+    runtests::<CreateContainerRequest>("createcontainer/guest_pull");
+}
+
+#[test]
 fn test_create_container_process() {
     runtests::<CreateContainerRequest>("createcontainer/deploy_process");
 }
