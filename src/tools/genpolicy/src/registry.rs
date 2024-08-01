@@ -456,7 +456,9 @@ pub fn get_verity_hash_value(path: &Path) -> Result<String> {
     Ok(result)
 }
 
+
 pub async fn get_container(config: &Config, image: &str) -> Result<Container> {
+    #[cfg(feature = "containerd")]
     if let Some(socket_path) = &config.containerd_socket_path {
         return Container::new_containerd_pull(
             config.layers_cache_file_path.clone(),

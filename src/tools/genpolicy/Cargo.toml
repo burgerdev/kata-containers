@@ -62,10 +62,14 @@ zerocopy = "0.6.1"
 fs2 = "0.4.3"
 
 # containerd image pull support
-k8s-cri = "0.7.0"
-tonic = "0.9.2"
-tower = "0.4.13"
-containerd-client = "0.4.0"
+k8s-cri = { version = "0.7.0", optional = true }
+tonic = { version = "0.9.2", optional = true }
+tower = { version = "0.4.13", optional = true }
+containerd-client = { version = "0.4.0", optional = true }
+
+[features]
+default = ["containerd"]
+containerd = [ "dep:k8s-cri", "dep:tonic", "dep:tower", "dep:containerd-client" ]
 
 [dev-dependencies]
 regorus = { version = "0.1.4", default-features = false, features = ["arc", "regex"]}
