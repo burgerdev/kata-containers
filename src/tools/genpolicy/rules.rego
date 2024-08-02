@@ -578,6 +578,7 @@ allow_arg(i, i_arg, p_process, s_name) {
     p_arg := p_process.Args[i]
     print("allow_arg 1: i =", i, "i_arg =", i_arg, "p_arg =", p_arg)
 
+    # TODO(burgerdev): should be a regex like '[^$][$]{2}[(]([^)]+)[)] -> $(\1)'
     p_arg2 := replace(p_arg, "$$", "$")
     p_arg2 == i_arg
 
@@ -587,21 +588,13 @@ allow_arg(i, i_arg, p_process, s_name) {
     p_arg := p_process.Args[i]
     print("allow_arg 2: i =", i, "i_arg =", i_arg, "p_arg =", p_arg)
 
-    # TODO: can $(node-name) be handled better?
-    contains(p_arg, "$(node-name)")
-
-    print("allow_arg 2: true")
-}
-allow_arg(i, i_arg, p_process, s_name) {
-    p_arg := p_process.Args[i]
-    print("allow_arg 3: i =", i, "i_arg =", i_arg, "p_arg =", p_arg)
-
+    # TODO(burgerdev): should be a regex like '[^$][$]{2}[(]([^)]+)[)] -> $(\1)'
     p_arg2 := replace(p_arg, "$$", "$")
     p_arg3 := replace(p_arg2, "$(sandbox-name)", s_name)
-    print("allow_arg 3: p_arg3 =", p_arg3)
+    print("allow_arg 2: p_arg3 =", p_arg3)
     p_arg3 == i_arg
 
-    print("allow_arg 3: true")
+    print("allow_arg 2: true")
 }
 
 # OCI process.Env field
@@ -672,10 +665,13 @@ allow_var(p_process, i_process, i_var, s_name) {
 
     p_name_value[0] == name_value[0]
 
-    # TODO: should these be handled in a different way?
+    # These can't be known at policy generation, so at least restrict them to harmless values.
     always_allowed := ["$(host-name)", "$(node-name)", "$(pod-uid)"]
     some allowed in always_allowed
-    contains(p_name_value[1], allowed)
+    p_name_value[1] == allowed
+    p_value_regexp := sprintf("^%s$", policy_data.common.dns_label)
+    print("allow_var 5: p_value_regexp =", p_value_regexp, "name_value[1] =", name_value[1])
+    regex.match(p_value_regexp, name_value[1])
 
     print("allow_var 5: true")
 }
