@@ -26,27 +26,31 @@ struct TestCase<T> {
 /// The resources must produce a policy when fed into genpolicy, so there
 /// should be exactly one entry with a PodSpec. The test case file must contain
 /// a JSON list of [TestCase] instances appropriate for `T`.
-fn runtests<T>(test_case_dir: &str)
+fn runtests<T>(case_dir: &str)
 where
     T: DeserializeOwned + Serialize,
 {
     // Prepare temp dir for running genpolicy.
 
-    std::env::set_current_dir(env!("CARGO_TARGET_TMPDIR"))
-        .expect("CARGO_TARGET_TMPDIR should be accessible");
+    let test_dir = path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(case_dir);
+    fs::create_dir_all(&test_dir)
+        .expect("should be able to create directories under CARGO_TARGET_TMPDIR");
 
     let genpolicy_dir = path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
     for base in ["rules.rego", "genpolicy-settings.json"] {
-        fs::copy(genpolicy_dir.join(base), base).expect("copying files around should not fail");
+        fs::copy(genpolicy_dir.join(base), test_dir.join(base))
+            .expect("copying files around should not fail");
     }
 
-    let test_data = genpolicy_dir.join("tests/testdata").join(test_case_dir);
-    fs::copy(test_data.join("pod.yaml"), "pod.yaml").expect("copying files around should not fail");
+    let test_data_src = genpolicy_dir.join("tests/testdata").join(case_dir);
+    fs::copy(test_data_src.join("pod.yaml"), test_dir.join("pod.yaml"))
+        .expect("copying files around should not fail");
 
     // Run the command and return the generated policy.
 
     let output = Command::new(env!("CARGO_BIN_EXE_genpolicy"))
+        .current_dir(test_dir)
         .args(["-u", "-r", "-y", "pod.yaml"])
         .output()
         .expect("executing the genpolicy command should not fail");
@@ -69,7 +73,7 @@ where
     // Run through the test cases and evaluate the canned requests.
 
     let case_file =
-        File::open(test_data.join("testcases.json")).expect("test case file should open");
+        File::open(test_data_src.join("testcases.json")).expect("test case file should open");
     let test_cases: Vec<TestCase<T>> =
         serde_json::from_reader(case_file).expect("test case file should parse");
 
