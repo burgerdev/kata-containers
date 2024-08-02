@@ -1,0 +1,786 @@
+[
+  {
+    "description": "expected request",
+    "allowed": true,
+    "request": {
+      "container_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "exec_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "string_user": null,
+      "devices": [],
+      "storages": [],
+      "OCI": {
+        "Version": "1.1.0",
+        "Process": {
+          "Terminal": false,
+          "ConsoleSize": null,
+          "User": {
+            "UID": 0,
+            "GID": 0,
+            "AdditionalGids": [
+              0,
+              10
+            ],
+            "Username": ""
+          },
+          "Args": [
+            "/bin/sh",
+            "-c",
+            "tail -f /dev/null\necho default/dummy-5d67fcd595-x6mhv\necho $(LITERAL)\n"
+          ],
+          "Env": [
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "HOSTNAME=dummy-5d67fcd595-x6mhv",
+            "POD_NAME=dummy-5d67fcd595-x6mhv",
+            "POD_NAMESPACE=default",
+            "ANNOTATION=bar",
+            "NODE_NAME=aks-nodepool2-15282022-vmss000000",
+            "SA_NAME=default",
+            "KUBERNETES_SERVICE_PORT=443",
+            "KUBERNETES_SERVICE_PORT_HTTPS=443",
+            "KUBERNETES_PORT=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP_PROTO=tcp",
+            "KUBERNETES_PORT_443_TCP_PORT=443",
+            "KUBERNETES_PORT_443_TCP_ADDR=10.0.0.1",
+            "KUBERNETES_SERVICE_HOST=10.0.0.1"
+          ],
+          "Cwd": "/",
+          "Capabilities": {
+            "Bounding": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Effective": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Inheritable": [],
+            "Permitted": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Ambient": []
+          },
+          "Rlimits": [],
+          "NoNewPrivileges": false,
+          "ApparmorProfile": "cri-containerd.apparmor.d",
+          "OOMScoreAdj": 1000,
+          "SelinuxLabel": ""
+        },
+        "Root": {
+          "Path": "/run/kata-containers/shared/containers/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320/rootfs",
+          "Readonly": false
+        },
+        "Hostname": "",
+        "Mounts": [],
+        "Hooks": null,
+        "Annotations": {
+          "io.katacontainers.pkg.oci.bundle_path": "/run/containerd/io.containerd.runtime.v2.task/k8s.io/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "io.kubernetes.cri.image-name": "quay.io/prometheus/busybox@sha256:dfa54ef35e438b9e71ac5549159074576b6382f95ce1a434088e05fd6b730bc4",
+          "io.kubernetes.cri.sandbox-name": "dummy-5d67fcd595-x6mhv",
+          "io.kubernetes.cri.sandbox-id": "baa96ff7589930e4fb4bc5f922e2fa22d6835769d0b1cdbec825a578ea1390d1",
+          "io.kubernetes.cri.container-name": "sandbox-name-injection",
+          "io.kubernetes.cri.sandbox-namespace": "default",
+          "io.kubernetes.cri.sandbox-uid": "86d3e2ca-7121-40ec-810a-a5a078080644",
+          "io.kubernetes.cri.container-type": "container",
+          "io.katacontainers.pkg.oci.container_type": "pod_container"
+        },
+        "Linux": {
+          "UIDMappings": [],
+          "GIDMappings": [],
+          "Sysctl": {},
+          "Resources": {
+            "Devices": [],
+            "Memory": {
+              "Limit": 0,
+              "Reservation": 0,
+              "Swap": 0,
+              "Kernel": 0,
+              "KernelTCP": 0,
+              "Swappiness": 0,
+              "DisableOOMKiller": false
+            },
+            "CPU": {
+              "Shares": 2,
+              "Quota": 0,
+              "Period": 100000,
+              "RealtimeRuntime": 0,
+              "RealtimePeriod": 0,
+              "Cpus": "",
+              "Mems": ""
+            },
+            "Pids": null,
+            "BlockIO": null,
+            "HugepageLimits": [],
+            "Network": null
+          },
+          "CgroupsPath": "/kubepods/besteffort/pod86d3e2ca-7121-40ec-810a-a5a078080644/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "Namespaces": [
+            {
+              "Type": "ipc",
+              "Path": ""
+            },
+            {
+              "Type": "uts",
+              "Path": ""
+            },
+            {
+              "Type": "mount",
+              "Path": ""
+            }
+          ],
+          "Devices": [],
+          "Seccomp": null,
+          "RootfsPropagation": "",
+          "MaskedPaths": [
+            "/proc/asound",
+            "/proc/acpi",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ],
+          "MountLabel": "",
+          "IntelRdt": null
+        },
+        "Solaris": null,
+        "Windows": null
+      },
+      "sandbox_pidns": false,
+      "shared_mounts": []
+    }
+  },
+  {
+    "description": "attempted command injection with sandbox-name",
+    "allowed": true,
+    "request": {
+      "container_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "exec_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "string_user": null,
+      "devices": [],
+      "storages": [],
+      "OCI": {
+        "Version": "1.1.0",
+        "Process": {
+          "Terminal": false,
+          "ConsoleSize": null,
+          "User": {
+            "UID": 0,
+            "GID": 0,
+            "AdditionalGids": [
+              0,
+              10
+            ],
+            "Username": ""
+          },
+          "Args": [
+            "/bin/sh",
+            "-c",
+            "tail -f /dev/null\necho default/INJECTION; rm -rf /;\necho $(LITERAL)\n"
+          ],
+          "Env": [
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "HOSTNAME=dummy-5d67fcd595-x6mhv",
+            "POD_NAME=INJECTION; rm -rf /;",
+            "POD_NAMESPACE=default",
+            "ANNOTATION=bar",
+            "NODE_NAME=aks-nodepool2-15282022-vmss000000",
+            "SA_NAME=default",
+            "KUBERNETES_SERVICE_PORT=443",
+            "KUBERNETES_SERVICE_PORT_HTTPS=443",
+            "KUBERNETES_PORT=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP_PROTO=tcp",
+            "KUBERNETES_PORT_443_TCP_PORT=443",
+            "KUBERNETES_PORT_443_TCP_ADDR=10.0.0.1",
+            "KUBERNETES_SERVICE_HOST=10.0.0.1"
+          ],
+          "Cwd": "/",
+          "Capabilities": {
+            "Bounding": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Effective": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Inheritable": [],
+            "Permitted": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Ambient": []
+          },
+          "Rlimits": [],
+          "NoNewPrivileges": false,
+          "ApparmorProfile": "cri-containerd.apparmor.d",
+          "OOMScoreAdj": 1000,
+          "SelinuxLabel": ""
+        },
+        "Root": {
+          "Path": "/run/kata-containers/shared/containers/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320/rootfs",
+          "Readonly": false
+        },
+        "Hostname": "",
+        "Mounts": [],
+        "Hooks": null,
+        "Annotations": {
+          "io.katacontainers.pkg.oci.bundle_path": "/run/containerd/io.containerd.runtime.v2.task/k8s.io/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "io.kubernetes.cri.image-name": "quay.io/prometheus/busybox@sha256:dfa54ef35e438b9e71ac5549159074576b6382f95ce1a434088e05fd6b730bc4",
+          "io.kubernetes.cri.sandbox-name": "INJECTION; rm -rf /;",
+          "io.kubernetes.cri.sandbox-id": "baa96ff7589930e4fb4bc5f922e2fa22d6835769d0b1cdbec825a578ea1390d1",
+          "io.kubernetes.cri.container-name": "sandbox-name-injection",
+          "io.kubernetes.cri.sandbox-namespace": "default",
+          "io.kubernetes.cri.sandbox-uid": "86d3e2ca-7121-40ec-810a-a5a078080644",
+          "io.kubernetes.cri.container-type": "container",
+          "io.katacontainers.pkg.oci.container_type": "pod_container"
+        },
+        "Linux": {
+          "UIDMappings": [],
+          "GIDMappings": [],
+          "Sysctl": {},
+          "Resources": {
+            "Devices": [],
+            "Memory": {
+              "Limit": 0,
+              "Reservation": 0,
+              "Swap": 0,
+              "Kernel": 0,
+              "KernelTCP": 0,
+              "Swappiness": 0,
+              "DisableOOMKiller": false
+            },
+            "CPU": {
+              "Shares": 2,
+              "Quota": 0,
+              "Period": 100000,
+              "RealtimeRuntime": 0,
+              "RealtimePeriod": 0,
+              "Cpus": "",
+              "Mems": ""
+            },
+            "Pids": null,
+            "BlockIO": null,
+            "HugepageLimits": [],
+            "Network": null
+          },
+          "CgroupsPath": "/kubepods/besteffort/pod86d3e2ca-7121-40ec-810a-a5a078080644/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "Namespaces": [
+            {
+              "Type": "ipc",
+              "Path": ""
+            },
+            {
+              "Type": "uts",
+              "Path": ""
+            },
+            {
+              "Type": "mount",
+              "Path": ""
+            }
+          ],
+          "Devices": [],
+          "Seccomp": null,
+          "RootfsPropagation": "",
+          "MaskedPaths": [
+            "/proc/asound",
+            "/proc/acpi",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ],
+          "MountLabel": "",
+          "IntelRdt": null
+        },
+        "Solaris": null,
+        "Windows": null
+      },
+      "sandbox_pidns": false,
+      "shared_mounts": []
+    }
+  },
+  {
+    "description": "attempted command injection with node-name in env",
+    "allowed": false,
+    "request": {
+      "container_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "exec_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "string_user": null,
+      "devices": [],
+      "storages": [],
+      "OCI": {
+        "Version": "1.1.0",
+        "Process": {
+          "Terminal": false,
+          "ConsoleSize": null,
+          "User": {
+            "UID": 0,
+            "GID": 0,
+            "AdditionalGids": [
+              0,
+              10
+            ],
+            "Username": ""
+          },
+          "Args": [
+            "/bin/sh",
+            "-c",
+            "tail -f /dev/null\necho INJECTION; rm -rf /\n"
+          ],
+          "Env": [
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "HOSTNAME=dummy-5d67fcd595-x6mhv",
+            "NODE_NAME=echo INJECTION; rm -rf /",
+            "KUBERNETES_SERVICE_PORT=443",
+            "KUBERNETES_SERVICE_PORT_HTTPS=443",
+            "KUBERNETES_PORT=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP_PROTO=tcp",
+            "KUBERNETES_PORT_443_TCP_PORT=443",
+            "KUBERNETES_PORT_443_TCP_ADDR=10.0.0.1",
+            "KUBERNETES_SERVICE_HOST=10.0.0.1"
+          ],
+          "Cwd": "/",
+          "Capabilities": {
+            "Bounding": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Effective": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Inheritable": [],
+            "Permitted": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Ambient": []
+          },
+          "Rlimits": [],
+          "NoNewPrivileges": false,
+          "ApparmorProfile": "cri-containerd.apparmor.d",
+          "OOMScoreAdj": 1000,
+          "SelinuxLabel": ""
+        },
+        "Root": {
+          "Path": "/run/kata-containers/shared/containers/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320/rootfs",
+          "Readonly": false
+        },
+        "Hostname": "",
+        "Mounts": [],
+        "Hooks": null,
+        "Annotations": {
+          "io.katacontainers.pkg.oci.bundle_path": "/run/containerd/io.containerd.runtime.v2.task/k8s.io/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "io.kubernetes.cri.image-name": "quay.io/prometheus/busybox@sha256:dfa54ef35e438b9e71ac5549159074576b6382f95ce1a434088e05fd6b730bc4",
+          "io.kubernetes.cri.sandbox-name": "dummy-5d67fcd595-x6mhv",
+          "io.kubernetes.cri.sandbox-id": "baa96ff7589930e4fb4bc5f922e2fa22d6835769d0b1cdbec825a578ea1390d1",
+          "io.kubernetes.cri.container-name": "sandbox-name-injection",
+          "io.kubernetes.cri.sandbox-namespace": "default",
+          "io.kubernetes.cri.sandbox-uid": "86d3e2ca-7121-40ec-810a-a5a078080644",
+          "io.kubernetes.cri.container-type": "container",
+          "io.katacontainers.pkg.oci.container_type": "pod_container"
+        },
+        "Linux": {
+          "UIDMappings": [],
+          "GIDMappings": [],
+          "Sysctl": {},
+          "Resources": {
+            "Devices": [],
+            "Memory": {
+              "Limit": 0,
+              "Reservation": 0,
+              "Swap": 0,
+              "Kernel": 0,
+              "KernelTCP": 0,
+              "Swappiness": 0,
+              "DisableOOMKiller": false
+            },
+            "CPU": {
+              "Shares": 2,
+              "Quota": 0,
+              "Period": 100000,
+              "RealtimeRuntime": 0,
+              "RealtimePeriod": 0,
+              "Cpus": "",
+              "Mems": ""
+            },
+            "Pids": null,
+            "BlockIO": null,
+            "HugepageLimits": [],
+            "Network": null
+          },
+          "CgroupsPath": "/kubepods/besteffort/pod86d3e2ca-7121-40ec-810a-a5a078080644/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "Namespaces": [
+            {
+              "Type": "ipc",
+              "Path": ""
+            },
+            {
+              "Type": "uts",
+              "Path": ""
+            },
+            {
+              "Type": "mount",
+              "Path": ""
+            }
+          ],
+          "Devices": [],
+          "Seccomp": null,
+          "RootfsPropagation": "",
+          "MaskedPaths": [
+            "/proc/asound",
+            "/proc/acpi",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ],
+          "MountLabel": "",
+          "IntelRdt": null
+        },
+        "Solaris": null,
+        "Windows": null
+      },
+      "sandbox_pidns": false,
+      "shared_mounts": []
+    }
+  },
+  {
+    "description": "attempted command injection with node-name in args",
+    "allowed": false,
+    "request": {
+      "container_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "exec_id": "1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+      "string_user": null,
+      "devices": [],
+      "storages": [],
+      "OCI": {
+        "Version": "1.1.0",
+        "Process": {
+          "Terminal": false,
+          "ConsoleSize": null,
+          "User": {
+            "UID": 0,
+            "GID": 0,
+            "AdditionalGids": [
+              0,
+              10
+            ],
+            "Username": ""
+          },
+          "Args": [
+            "/bin/sh",
+            "-c",
+            "tail -f /dev/null\necho INJECTION; rm -rf /\n"
+          ],
+          "Env": [
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "HOSTNAME=dummy-5d67fcd595-x6mhv",
+            "NODE_NAME=localhost",
+            "KUBERNETES_SERVICE_PORT=443",
+            "KUBERNETES_SERVICE_PORT_HTTPS=443",
+            "KUBERNETES_PORT=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP=tcp://10.0.0.1:443",
+            "KUBERNETES_PORT_443_TCP_PROTO=tcp",
+            "KUBERNETES_PORT_443_TCP_PORT=443",
+            "KUBERNETES_PORT_443_TCP_ADDR=10.0.0.1",
+            "KUBERNETES_SERVICE_HOST=10.0.0.1"
+          ],
+          "Cwd": "/",
+          "Capabilities": {
+            "Bounding": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Effective": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Inheritable": [],
+            "Permitted": [
+              "CAP_CHOWN",
+              "CAP_DAC_OVERRIDE",
+              "CAP_FSETID",
+              "CAP_FOWNER",
+              "CAP_MKNOD",
+              "CAP_NET_RAW",
+              "CAP_SETGID",
+              "CAP_SETUID",
+              "CAP_SETFCAP",
+              "CAP_SETPCAP",
+              "CAP_NET_BIND_SERVICE",
+              "CAP_SYS_CHROOT",
+              "CAP_KILL",
+              "CAP_AUDIT_WRITE"
+            ],
+            "Ambient": []
+          },
+          "Rlimits": [],
+          "NoNewPrivileges": false,
+          "ApparmorProfile": "cri-containerd.apparmor.d",
+          "OOMScoreAdj": 1000,
+          "SelinuxLabel": ""
+        },
+        "Root": {
+          "Path": "/run/kata-containers/shared/containers/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320/rootfs",
+          "Readonly": false
+        },
+        "Hostname": "",
+        "Mounts": [],
+        "Hooks": null,
+        "Annotations": {
+          "io.katacontainers.pkg.oci.bundle_path": "/run/containerd/io.containerd.runtime.v2.task/k8s.io/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "io.kubernetes.cri.image-name": "quay.io/prometheus/busybox@sha256:dfa54ef35e438b9e71ac5549159074576b6382f95ce1a434088e05fd6b730bc4",
+          "io.kubernetes.cri.sandbox-name": "dummy-5d67fcd595-x6mhv",
+          "io.kubernetes.cri.sandbox-id": "baa96ff7589930e4fb4bc5f922e2fa22d6835769d0b1cdbec825a578ea1390d1",
+          "io.kubernetes.cri.container-name": "sandbox-name-injection",
+          "io.kubernetes.cri.sandbox-namespace": "default",
+          "io.kubernetes.cri.sandbox-uid": "86d3e2ca-7121-40ec-810a-a5a078080644",
+          "io.kubernetes.cri.container-type": "container",
+          "io.katacontainers.pkg.oci.container_type": "pod_container"
+        },
+        "Linux": {
+          "UIDMappings": [],
+          "GIDMappings": [],
+          "Sysctl": {},
+          "Resources": {
+            "Devices": [],
+            "Memory": {
+              "Limit": 0,
+              "Reservation": 0,
+              "Swap": 0,
+              "Kernel": 0,
+              "KernelTCP": 0,
+              "Swappiness": 0,
+              "DisableOOMKiller": false
+            },
+            "CPU": {
+              "Shares": 2,
+              "Quota": 0,
+              "Period": 100000,
+              "RealtimeRuntime": 0,
+              "RealtimePeriod": 0,
+              "Cpus": "",
+              "Mems": ""
+            },
+            "Pids": null,
+            "BlockIO": null,
+            "HugepageLimits": [],
+            "Network": null
+          },
+          "CgroupsPath": "/kubepods/besteffort/pod86d3e2ca-7121-40ec-810a-a5a078080644/1e3a056e906c6fbb7f0becd7e5ff61a6ff6b46747081eb6b93e5c654b30f9320",
+          "Namespaces": [
+            {
+              "Type": "ipc",
+              "Path": ""
+            },
+            {
+              "Type": "uts",
+              "Path": ""
+            },
+            {
+              "Type": "mount",
+              "Path": ""
+            }
+          ],
+          "Devices": [],
+          "Seccomp": null,
+          "RootfsPropagation": "",
+          "MaskedPaths": [
+            "/proc/asound",
+            "/proc/acpi",
+            "/proc/kcore",
+            "/proc/keys",
+            "/proc/latency_stats",
+            "/proc/timer_list",
+            "/proc/timer_stats",
+            "/proc/sched_debug",
+            "/proc/scsi",
+            "/sys/firmware"
+          ],
+          "ReadonlyPaths": [
+            "/proc/bus",
+            "/proc/fs",
+            "/proc/irq",
+            "/proc/sys",
+            "/proc/sysrq-trigger"
+          ],
+          "MountLabel": "",
+          "IntelRdt": null
+        },
+        "Solaris": null,
+        "Windows": null
+      },
+      "sandbox_pidns": false,
+      "shared_mounts": []
+    }
+  }
+]
