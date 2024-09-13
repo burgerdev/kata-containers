@@ -863,9 +863,24 @@ allow_guest_pull(p_container_image, i_storage_source, i_driver_options) {
 
 allow_guest_pull(p_container_image, i_storage_source, i_driver_options) {
     # other containers
-    i_storage_source == p_container_image
-    i_driver_options.metadata["io.kubernetes.cri.image-name"] == p_container_image
+    is_same_image(i_storage_source, p_container_image)
+    is_same_image(i_driver_options.metadata["io.kubernetes.cri.image-name"], p_container_image)
     print("allow_guest_pull 2: true")
+}
+
+is_same_image(a, b) {
+    # https://github.com/distribution/distribution/blob/d0deff9/reference/reference.go#L4-L24
+    ref_re = "^([a-zA-Z0-9-]+(?:[.][a-zA-Z0-9-]+)+[.]?(?::[a-zA-Z0-9-]+)?/)?([a-zA-Z0-9-]+(?:/[a-zA-Z0-9-]+)*)(:[\\w][\\w.-]{0,127})?(@[a-z0-9]+:[0-9a-f]+)$"
+
+    print("is_same_image: a =", a, "b =", b)
+
+    a_components := regex.find_all_string_submatch_n(ref_re, a, 1)
+    b_components := regex.find_all_string_submatch_n(ref_re, b, 1)
+
+    print("is_same_image: components a =", a_components, "b =", b_components)
+    a_components[0][1] == b_components[0][1] # registry
+    a_components[0][2] == b_components[0][2] # repository
+    a_components[0][4] == b_components[0][4] # digest
 }
 
 # Allow tardev-snapshotter storage
