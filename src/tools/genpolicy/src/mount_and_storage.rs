@@ -189,13 +189,19 @@ fn get_empty_dir_mount_and_storage(
         _ => "rw",
     };
 
+    let mount_propagation = match &yaml_mount.mountPropagation {
+        Some(mode) if mode == "Bidirectional" => "rshared",
+        Some(mode) if mode == "HostToContainer" => "rslave",
+        _ => "rprivate",
+    };
+
     p_mounts.push(policy::KataMount {
         destination: yaml_mount.mountPath.to_string(),
         type_: mount_type.to_string(),
         source,
         options: vec![
             "rbind".to_string(),
-            "rprivate".to_string(),
+            mount_propagation.to_string(),
             access.to_string(),
         ],
     });

@@ -105,7 +105,8 @@ allow_create_container_input {
     count(i_linux.GIDMappings) == 0
     count(i_linux.MountLabel) == 0
     count(i_linux.Resources.Devices) == 0
-    count(i_linux.RootfsPropagation) == 0
+    # TODO(burgerdev): is it harmful to always allow RootfsPropagation?
+    # count(i_linux.RootfsPropagation) == 0
     count(i_linux.UIDMappings) == 0
     is_null(i_linux.IntelRdt)
     is_null(i_linux.Resources.BlockIO)
