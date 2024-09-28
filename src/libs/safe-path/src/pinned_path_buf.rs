@@ -124,7 +124,10 @@ impl PinnedPathBuf {
     /// Open a direct child of the filesystem objected referenced by the `PinnedPathBuf` object.
     pub fn open_child(&self, path_comp: &OsStr) -> Result<Self> {
         let name = Self::prepare_path_component(path_comp)?;
+        #[cfg(target_os = "linux")]
         let oflags = libc::O_PATH | libc::O_CLOEXEC;
+        #[cfg(not(target_os = "linux"))]
+        let oflags = libc::O_CLOEXEC;
         let res = unsafe { libc::openat(self.path_fd(), name.as_ptr(), oflags, 0) };
         if res < 0 {
             Err(Error::last_os_error())
@@ -150,10 +153,15 @@ impl PinnedPathBuf {
     /// Obtain a file descriptor that can be used for two purposes:
     /// - indicate a location in the filesystem tree
     /// - perform operations that act purely at the file descriptor level
+    ///
+    /// TODO(burgerdev): only works like that on Linux.
     fn open_by_path<P: AsRef<Path>>(path: P) -> Result<File> {
         // When O_PATH is specified in flags, flag bits other than O_CLOEXEC, O_DIRECTORY, and
         // O_NOFOLLOW are ignored.
+        #[cfg(target_os = "linux")]
         let o_flags = libc::O_PATH | libc::O_CLOEXEC;
+        #[cfg(not(target_os = "linux"))]
+        let o_flags = libc::O_CLOEXEC;
         OpenOptions::new()
             .read(true)
             .custom_flags(o_flags)

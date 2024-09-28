@@ -8,8 +8,8 @@ use std::path::Path;
 
 use crate::{scoped_join, scoped_resolve, PinnedPathBuf};
 
-const DIRECTORY_MODE_DEFAULT: u32 = 0o777;
-const DIRECTORY_MODE_MASK: u32 = 0o777;
+const DIRECTORY_MODE_DEFAULT: libc::mode_t = 0o777;
+const DIRECTORY_MODE_MASK: libc::mode_t = 0o777;
 
 /// Safe version of `DirBuilder` to protect from TOCTOU style of attacks.
 ///
@@ -22,7 +22,7 @@ const DIRECTORY_MODE_MASK: u32 = 0o777;
 #[derive(Debug)]
 pub struct ScopedDirBuilder {
     root: PinnedPathBuf,
-    mode: u32,
+    mode: libc::mode_t,
     recursive: bool,
 }
 
@@ -54,7 +54,7 @@ impl ScopedDirBuilder {
     }
 
     /// Sets the mode to create new directories with. This option defaults to 0o755.
-    pub fn mode(&mut self, mode: u32) -> &mut Self {
+    pub fn mode(&mut self, mode: libc::mode_t) -> &mut Self {
         self.mode = mode & DIRECTORY_MODE_MASK;
         self
     }
@@ -223,19 +223,19 @@ mod tests {
         assert!(rootfs_path.join("a/b/c/d").is_dir());
         assert_eq!(
             rootfs_path.join("a").metadata().unwrap().mode() & 0o777,
-            DIRECTORY_MODE_DEFAULT & !umask,
+            (DIRECTORY_MODE_DEFAULT & !umask).into(),
         );
         assert_eq!(
             rootfs_path.join("a/b").metadata().unwrap().mode() & 0o777,
-            0o740 & !umask
+            (0o740 & !umask).into()
         );
         assert_eq!(
             rootfs_path.join("a/b/c").metadata().unwrap().mode() & 0o777,
-            0o740 & !umask
+            (0o740 & !umask).into()
         );
         assert_eq!(
             rootfs_path.join("a/b/c/d").metadata().unwrap().mode() & 0o777,
-            0o740 & !umask
+            (0o740 & !umask).into()
         );
 
         // Creating should fail if some components are not directory.
