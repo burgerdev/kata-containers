@@ -4,7 +4,6 @@ This crate is a collection of utilities and helpers for
 [Kata Containers](https://github.com/kata-containers/kata-containers/) components to access system services.
 
 It provides safe wrappers over system services, such as:
-- cgroups
 - file systems
 - mount
 - NUMA
