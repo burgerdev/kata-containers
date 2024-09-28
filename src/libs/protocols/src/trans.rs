@@ -97,6 +97,7 @@ impl From<oci::LinuxCapabilities> for grpc::LinuxCapabilities {
     }
 }
 
+#[cfg(any(target_os = "linux", target_os = "solaris"))]
 impl From<oci::PosixRlimit> for grpc::POSIXRlimit {
     fn from(from: oci::PosixRlimit) -> Self {
         grpc::POSIXRlimit {
@@ -118,6 +119,8 @@ impl From<oci::Process> for grpc::Process {
             Env: option_vec_to_vec(from.env()),
             Cwd: from.cwd().display().to_string(),
             Capabilities: from_option(from.capabilities().clone()),
+
+            #[cfg(any(target_os = "linux", target_os = "solaris"))]
             Rlimits: from_option_vec(from.rlimits().clone()),
             NoNewPrivileges: from.no_new_privileges().unwrap_or_default(),
             ApparmorProfile: from
@@ -993,6 +996,7 @@ impl From<grpc::Linux> for oci::Linux {
     }
 }
 
+#[cfg(any(target_os = "linux", target_os = "solaris"))]
 impl From<grpc::POSIXRlimit> for oci::PosixRlimit {
     fn from(proto: grpc::POSIXRlimit) -> Self {
         oci::PosixRlimitBuilder::default()
@@ -1078,6 +1082,8 @@ impl From<grpc::Process> for oci::Process {
         } else {
             process.set_capabilities(None);
         }
+
+        #[cfg(any(target_os = "linux", target_os = "solaris"))]
         if !from.Rlimits().is_empty() {
             process.set_rlimits(Some(
                 from.Rlimits().iter().cloned().map(|r| r.into()).collect(),

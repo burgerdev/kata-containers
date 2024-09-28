@@ -7,17 +7,23 @@
 extern crate slog;
 
 pub mod cpu;
-pub mod device;
-pub mod fs;
 pub mod hooks;
-pub mod k8s;
-pub mod mount;
-pub mod netns;
 pub mod numa;
 pub mod protection;
 pub mod rand;
 pub mod spec;
 pub mod validate;
+
+#[cfg(target_os = "linux")]
+pub mod fs;
+#[cfg(target_os = "linux")]
+pub mod device;
+#[cfg(target_os = "linux")]
+pub mod k8s;
+#[cfg(target_os = "linux")]
+pub mod mount;
+#[cfg(target_os = "linux")]
+pub mod netns;
 
 use anyhow::Result;
 use std::io::BufRead;
