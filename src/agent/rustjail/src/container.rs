@@ -943,7 +943,9 @@ impl BaseContainer for LinuxContainer {
     }
 
     fn get_process(&mut self, eid: &str) -> Result<&mut Process> {
+        info!(logger, "get_process({})", eid);
         for (_, v) in self.processes.iter_mut() {
+            info!(logger, "  have process: {}", v.exec_id);
             if eid == v.exec_id.as_str() {
                 return Ok(v);
             }
@@ -1213,7 +1215,7 @@ impl BaseContainer for LinuxContainer {
 
         info!(logger, "child pid: {}", p.pid);
 
-        let st = self.oci_state()?;
+        let st = self.oci_state().map_err(|e| { error!(logger, "oci_state error: {}", e); e })?;
 
         join_namespaces(
             &logger,
@@ -1241,6 +1243,7 @@ impl BaseContainer for LinuxContainer {
             let spec = self.config.spec.as_mut().unwrap();
             update_namespaces(&self.logger, spec, p.pid)?;
         }
+        info!(logger, "inserting eid: {}", p.exec_id);
         self.processes.insert(p.pid, p);
 
         info!(logger, "wait on child log handler");

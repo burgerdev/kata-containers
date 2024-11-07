@@ -581,6 +581,8 @@ impl AgentService {
             let _ = s.send(p.exit_code).await;
         }
 
+
+        info!(logger, "removing eid: {}", eid);
         ctr.processes.remove(&pid);
 
         Ok(resp)
