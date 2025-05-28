@@ -8,6 +8,7 @@
 package resourcecontrol
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -79,7 +80,14 @@ func sandboxDevices() []specs.LinuxDeviceCgroup {
 	for _, device := range defaultDevices {
 		ldevice, err := DeviceToLinuxDevice(device)
 		if err != nil {
-			controllerLogger.WithField("source", "cgroups").Warnf("Could not add %s to the devices cgroup", device)
+			level := logrus.WarnLevel
+			if errors.Is(err, os.ErrNotExist) {
+				// Not all of the devices are guaranteed to exist on all possible target platforms.
+				// If the device does not exist, we don't need to worry about adding it to the
+				// cgroup.
+				level = logrus.DebugLevel
+			}
+			controllerLogger.WithField("source", "cgroups").Logf(level, "Could not add %s to the devices cgroup: %v", device, err)
 			continue
 		}
 		devices = append(devices, ldevice)
