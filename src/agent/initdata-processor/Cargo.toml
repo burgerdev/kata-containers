@@ -1,0 +1,24 @@
+[package]
+name = "initdata-processor"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# TODO(burgerdev): flate2 is used by a couple of crates, at to root Cargo.toml
+flate2 = "1.1.5"
+slog.workspace = true
+slog-term.workspace = true
+# TODO(burgerdev): slog-async is used by a couple of crates, at to root Cargo.toml
+slog-async = "2.8.0"
+toml.workspace = true
+
+# Local dependencies
+kata-types.workspace = true
+
+anyhow.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
