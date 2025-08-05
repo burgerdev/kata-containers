@@ -19,6 +19,7 @@ members = [
 
   # kata-agent
   "src/agent",
+  "src/agent/initdata-processor",
   "src/agent/rustjail",
   "src/agent/policy",
   "src/agent/vsock-exporter",
