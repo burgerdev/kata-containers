@@ -2,6 +2,7 @@
   {
     "allowed": true,
     "description": "generated name with valid prefix (dummyxyz)",
+    "method": "CreateContainer",
     "request": {
       "OCI": {
         "Annotations": {
@@ -132,12 +133,12 @@
         },
         "Version": "1.1.0"
       },
-      "type": "CreateContainer"
     }
   },
   {
     "allowed": false,
     "description": "generated name with invalid prefix (xyzdummy)",
+    "method": "CreateContainer",
     "request": {
       "OCI": {
         "Annotations": {
@@ -268,7 +269,6 @@
         },
         "Version": "1.1.0"
       },
-      "type": "CreateContainer"
     }
   }
 ]
