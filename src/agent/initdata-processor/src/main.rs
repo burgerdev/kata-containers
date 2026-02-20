@@ -4,9 +4,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use slog::{o, Drain, Logger};
 use tracing::{error, info, warn, Level};
 use tracing_subscriber::fmt::format::FmtSpan;
@@ -15,21 +14,18 @@ use crate::initdata::{locate_device_concurrently, read_initdata};
 use kata_types::initdata::InitData;
 
 const MEASURED_CFG_DIR: &str = "/run/measured-cfg";
-const DEFAULT_VALIDATOR: &str = "/usr/bin/initdata-validator";
 
 #[derive(Debug)]
 struct InitDataProcessor {
     device_path: PathBuf,
     config_path: PathBuf,
-    validator_path: PathBuf,
 }
 
 impl InitDataProcessor {
-    pub fn new(device_path: &str) -> Self {
+    pub fn new(device_path: PathBuf) -> Self {
         Self {
-            device_path: PathBuf::from(device_path),
+            device_path,
             config_path: PathBuf::from(MEASURED_CFG_DIR),
-            validator_path: PathBuf::from(DEFAULT_VALIDATOR),
         }
     }
 
@@ -38,75 +34,13 @@ impl InitDataProcessor {
         self
     }
 
-    pub fn with_validator(mut self, validator: impl Into<PathBuf>) -> Self {
-        self.validator_path = validator.into();
-        self
-    }
-
-    /// Reads and parses initdata from the device.
-    async fn parse_initdata(&self) -> Result<InitData> {
-        info!("Reading initdata from device: {:?}", self.device_path);
-        let initdata_content = read_initdata(&self.device_path)
-            .await
-            .map_err(|e| anyhow!("Failed to read initdata: {e:?}"))?;
-
-        let initdata: InitData =
-            toml::from_slice(&initdata_content).context("parse initdata failed")?;
-
-        info!(
-            "Successfully parsed initdata with {} entries",
-            initdata.data().len()
-        );
-
-        Ok(initdata)
-    }
-
-    /// Validates initdata using an external binary.
-    async fn validate_initdata(&self, initdata: &InitData) -> Result<()> {
-        info!("Validating initdata using: {:?}", self.validator_path);
-
-        if !self.validator_path.exists() {
-            warn!("validator not found at {:?}", self.validator_path);
-            initdata.validate()?;
-            return Ok(());
-        }
-
-        let mut child = Command::new(&self.validator_path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .with_context(|| format!("Failed to spawn validator: {:?}", self.validator_path))?;
-
-        // Send initdata to the validator.
-        if let Some(stdin) = child.stdin.as_mut() {
-            let serialized = serde_json::to_string(initdata)
-                .context("Failed to serialize initdata for validation")?;
-            stdin
-                .write_all(serialized.as_bytes())
-                .context("Failed to write initdata to validator stdin")?;
-        }
-
-        let output = child
-            .wait_with_output()
-            .context("Failed to wait for validator completion")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!(
-                "Initdata validation failed: exit code {:?}, stderr: {}",
-                output.status.code(),
-                stderr
-            ));
-        }
-
-        info!("Initdata validation successful");
-        Ok(())
-    }
-
     /// Writes configurations.
     async fn write_config_files(&self, initdata: &InitData) -> Result<()> {
         info!("Writing configuration files to: {:?}", self.config_path);
+
+        if tokio::fs::try_exists(&self.config_path).await? {
+            tokio::fs::remove_dir_all(&self.config_path).await?;
+        }
 
         // Create the config_path.
         fs::create_dir_all(&self.config_path).context(format!(
@@ -119,7 +53,7 @@ impl InitDataProcessor {
         {
             use std::os::unix::fs::PermissionsExt;
             let mut perms = fs::metadata(&self.config_path)?.permissions();
-            perms.set_mode(0o700);
+            perms.set_mode(0o755);
             fs::set_permissions(&self.config_path, perms)?;
         }
 
@@ -127,15 +61,16 @@ impl InitDataProcessor {
 
         // Write each configuration item.
         for (key, value) in initdata.data() {
-            let file_path = self.config_path.join(key);
+            let file_path = self.config_path.join(key).canonicalize()?;
 
             // Security check: Ensure file path is within the directory.
             if !file_path.starts_with(&self.config_path) {
                 warn!("Skipping potentially dangerous key: {}", key);
                 continue;
             }
+            // TODO(burgerdev): support subdirectories
 
-            self.write_secure_file(&file_path, value.as_bytes())
+            self.write_file(&file_path, value.as_bytes())
                 .await
                 .context(format!("Failed to write config file for key: {}", key))?;
 
@@ -146,13 +81,12 @@ impl InitDataProcessor {
         Ok(())
     }
 
-    /// Securely writes a file.
-    async fn write_secure_file(&self, path: &Path, content: &[u8]) -> Result<()> {
+    async fn write_file(&self, path: &Path, content: &[u8]) -> Result<()> {
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .mode(0o600) // Read/write only for owner.
+            .mode(0o444) // read-only for all users
             .open(path)
             .context(format!("Failed to open file: {:?}", path))?;
 
@@ -170,12 +104,25 @@ impl InitDataProcessor {
         info!("Starting initdata processing");
 
         // 1. Locate and parse initdata.
-        let initdata = self.parse_initdata().await?;
+        info!("Reading initdata from device: {:?}", self.device_path);
+        let initdata_content = read_initdata(&self.device_path)
+            .await
+            .context("Failed to read initdata: {e:?}")?;
 
-        // 2. Validate initdata.
-        self.validate_initdata(&initdata).await?;
+        let initdata: InitData =
+            toml::from_slice(&initdata_content).context("parse initdata failed")?;
+
+        info!(
+            "Successfully parsed initdata with {} entries",
+            initdata.data().len()
+        );
+
+        // TODO(burgerdev): 2. Validate initdata.
 
         // 3. Write config files.
+        let mut initdata_path = self.config_path.clone();
+        initdata_path.add_extension(".json");
+        self.write_file(&initdata_path, &initdata_content).await?;
         self.write_config_files(&initdata).await?;
 
         info!("Initdata processing completed successfully");
@@ -212,7 +159,7 @@ async fn main() -> Result<()> {
 
     // Parse command line arguments.
     let args: Vec<String> = std::env::args().collect();
-    let mut processor = InitDataProcessor::new(&initdata_device);
+    let mut processor = InitDataProcessor::new(initdata_device);
 
     // Simple command line argument parsing.
     let mut i = 1;
@@ -224,14 +171,6 @@ async fn main() -> Result<()> {
                     i += 2;
                 } else {
                     return Err(anyhow::anyhow!("--config-path requires a path argument"));
-                }
-            }
-            "--validator" => {
-                if i + 1 < args.len() {
-                    processor = processor.with_validator(&args[i + 1]);
-                    i += 2;
-                } else {
-                    return Err(anyhow::anyhow!("--validator requires a path argument"));
                 }
             }
             _ => return Err(anyhow::anyhow!("Unknown argument: {}", args[i])),

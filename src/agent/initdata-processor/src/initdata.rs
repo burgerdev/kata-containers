@@ -3,21 +3,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_compression::tokio::bufread::GzipDecoder;
+use futures::{stream::FuturesUnordered, StreamExt};
 use slog::{error, info, Logger};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
-use tokio::task::JoinHandle;
 
 /// Magic number of initdata device
 pub const INITDATA_MAGIC_NUMBER: &[u8] = b"initdata";
 
+const INITDATA_PATH_BY_ID: &str = "/dev/disk/by-id/virtio-initdata";
+
 /// It's designed to be run in a separate tokio task to check if a the potential device is the initdata device.
-async fn check_initdata_device(logger: Logger, path: PathBuf) -> Result<Option<String>> {
-    let metadata = match tokio::fs::metadata(&path).await {
-        Ok(m) => m,
-        Err(_) => return Ok(None),
-    };
+async fn check_initdata_device(logger: &Logger, path: PathBuf) -> Result<Option<PathBuf>> {
+    let metadata = tokio::fs::metadata(&path).await.context(format!("stat'ing file {path:?}"))?;
 
     if !metadata.file_type().is_block_device() {
         return Ok(None);
@@ -25,39 +24,33 @@ async fn check_initdata_device(logger: Logger, path: PathBuf) -> Result<Option<S
 
     info!(logger, "Initdata find a potential device: `{path:?}`");
 
-    let mut file = match tokio::fs::File::open(&path).await {
-        Ok(f) => f,
-        Err(e) => {
-            error!(
-                logger,
-                "Could not open the potential device `{path:?}`: {e}"
-            );
-            return Ok(None);
-        }
-    };
+    let mut file = tokio::fs::File::open(&path).await.context(format!("opening device {path:?}"))?;
 
     let mut magic = [0; 8];
-    match file.read_exact(&mut magic).await {
-        Ok(_) if magic == INITDATA_MAGIC_NUMBER => {
-            let device_path = path.to_string_lossy().into_owned();
-            info!(logger, "Found initdata device {device_path}");
-            Ok(Some(device_path))
-        }
-        _ => {
-            // This covers both the case where magic doesn't match and read errors.
-            // We don't need to bubble up read errors as failures for the whole process.
-            Ok(None)
-        }
-    }
+    file.read_exact(&mut magic).await.context(format!("reading from device {path:?}"))?;
+    let result = if magic == INITDATA_MAGIC_NUMBER {
+        Some(path) 
+    } else {
+        None
+    };
+    Ok(result)
 }
 
 /// Concurrently locate devices using `tokio::spawn`.
-pub async fn locate_device_concurrently(logger: &Logger) -> Result<Option<String>> {
+pub async fn locate_device_concurrently(logger: &Logger) -> Result<Option<PathBuf>> {
+    // On systems with udev, the device should be available under a by-id symlink.
+    match check_initdata_device(logger, INITDATA_PATH_BY_ID.into()).await {
+        Ok(_) => return Ok(Some(INITDATA_PATH_BY_ID.into())),
+        Err(e) => {
+            info!(logger, "Could not find udev symlink for initdata device: {:?}", e)
+        }
+    }
+
+    // Otherwise, we iterate over all devices and try to find a matching candidate.
     let dev_dir = Path::new("/dev");
     let mut read_dir = tokio::fs::read_dir(dev_dir).await?;
 
-    // The `handles` to store the concurrent checking tasks.
-    let mut handles: Vec<JoinHandle<Result<Option<String>>>> = Vec::new();
+    let mut tasks = FuturesUnordered::new();
 
     while let Some(entry) = read_dir.next_entry().await? {
         let filename = entry.file_name();
@@ -69,30 +62,25 @@ pub async fn locate_device_concurrently(logger: &Logger) -> Result<Option<String
         }
 
         // For each potential device, spawn a new task to check it.
-        let path = entry.path();
-        let logger_clone = logger.clone();
-        let handle = tokio::spawn(async move { check_initdata_device(logger_clone, path).await });
-
-        handles.push(handle);
+        tasks.push(check_initdata_device(logger, entry.path()));
     }
 
-    for handle in handles {
-        match handle.await? {
-            Ok(Some(device_path)) => {
-                // Found it, return immediately.
-                return Ok(Some(device_path));
-            }
-            Ok(None) => {
-                continue;
-            }
+    let mut errors = Vec::new();
+    while let Some(result) = tasks.next().await {
+        match result {
+            Ok(Some(path)) => return Ok(Some(path)),
+            Ok(None) => continue,
             Err(e) => {
-                error!(logger, "A device check task failed: {e:?}");
-                continue;
-            }
+                errors.push(e);
+                continue
+            },
         }
     }
-
-    Ok(None)
+    if errors.len() > 0 {
+        Err(MultiError{errors}.into())
+    } else {
+        Ok(None)
+    }
 }
 
 /// Open and decompresses data from the initdata device.
@@ -115,3 +103,19 @@ pub async fn read_initdata(device_path: &PathBuf) -> Result<Vec<u8>> {
     let _ = gzip_decoder.read_to_end(&mut initdata).await?;
     Ok(initdata)
 }
+
+#[derive(Debug)]
+struct MultiError {
+    pub errors: Vec<anyhow::Error>,
+}
+
+impl std::fmt::Display for MultiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for err in &self.errors {
+            writeln!(f, "{err}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for MultiError {}
