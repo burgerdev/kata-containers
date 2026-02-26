@@ -1,0 +1,18 @@
+# Copyright (c) 2026 Ant Group
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+[Unit]
+Description=Kata InitData Processor
+Documentation=https://github.com/kata-containers/kata-containers
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/initdata-processor
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
