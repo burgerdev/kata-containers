@@ -41,6 +41,7 @@ use tracing::{instrument, span};
 mod confidential_data_hub;
 mod config;
 mod console;
+mod exec_server;
 mod device;
 mod features;
 mod guest_extension_image;
@@ -377,6 +378,16 @@ async fn start_sandbox(
         ));
 
         tasks.push(debug_console_task);
+
+        if config.exec_noninteractive_vport > 0 {
+            let exec_vport = config.exec_noninteractive_vport as u32;
+            let exec_task = tokio::task::spawn(exec_server::exec_noninteractive_handler(
+                logger.clone(),
+                exec_vport,
+                shutdown.clone(),
+            ));
+            tasks.push(exec_task);
+        }
     }
 
     // Initialize unique sandbox structure.

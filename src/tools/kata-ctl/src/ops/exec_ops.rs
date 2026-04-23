@@ -20,7 +20,11 @@ use anyhow::{anyhow, Context};
 use http_body_util::BodyExt;
 use hyper::StatusCode;
 use nix::sys::socket::{connect, socket, AddressFamily, SockFlag, SockType, VsockAddr};
+use protocols::exec_noninteractive::exec_command_response::Payload;
+use protocols::exec_noninteractive::ExecCommandRequest;
+use protocols::exec_noninteractive_ttrpc_async::ExecNoninteractiveServiceClient;
 use slog::{debug, error, o};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use vmm_sys_util::terminal::Terminal;
 
 use crate::args::ExecArguments;
@@ -385,8 +389,146 @@ fn do_run_exec(sandbox_id: &str, dbg_console_vport: u32) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn ttrpc_client_connect(
+    server_url: &str,
+    exec_port: u32,
+) -> anyhow::Result<ttrpc::r#async::Client> {
+    let url_fields: Vec<&str> = server_url.split("://").collect();
+    if url_fields.len() != 2 {
+        return Err(anyhow!("invalid URI"));
+    }
+
+    let scheme = url_fields[0].to_uppercase();
+    let sock_addr: Vec<&str> = url_fields[1].split(':').collect();
+    if sock_addr.len() != 2 {
+        return Err(anyhow!("invalid server address URI"));
+    }
+
+    match scheme.as_str() {
+        SCHEME_VSOCK => {
+            let sock_cid: u32 = match sock_addr[0] {
+                "-1" | "" => libc::VMADDR_CID_ANY,
+                s => s
+                    .parse::<u32>()
+                    .with_context(|| format!("invalid vsock CID: {s}"))?,
+            };
+            let addr = format!("vsock://{}:{}", sock_cid, exec_port);
+            ttrpc::r#async::Client::connect(&addr)
+                .map_err(|e| anyhow!("ttrpc connect to {addr}: {e}"))
+        }
+        SCHEME_HYBRID_VSOCK => {
+            // Reuse the hvsock handshake path: setup_client handles CONNECT negotiation
+            // and returns the resulting Unix socket.
+            let stream = setup_client(server_url.to_string(), exec_port)
+                .context("set up hvsock for ttrpc")?;
+            let fd = stream.into_raw_fd();
+            Ok(ttrpc::r#async::Client::new(fd))
+        }
+        _ => Err(anyhow!("unsupported URI scheme: {}", scheme)),
+    }
+}
+
+fn do_run_exec_noninteractive(
+    sandbox_id: &str,
+    exec_port: u32,
+    cmd: Vec<String>,
+) -> anyhow::Result<i32> {
+    if exec_port == 0 {
+        return Err(anyhow!(
+            "--kata-exec-port must be set to use non-interactive exec"
+        ));
+    }
+
+    let server_url = get_server_socket(sandbox_id).context("get agent socket URL")?;
+    if server_url.is_empty() {
+        return Err(anyhow!("server url is empty"));
+    }
+
+    let client = ttrpc_client_connect(&server_url, exec_port)?;
+    let exec_client = ExecNoninteractiveServiceClient::new(client);
+
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(async move {
+            let ctx = ttrpc::context::with_timeout(0);
+            let bidi = exec_client
+                .run_command(ctx)
+                .await
+                .map_err(|e| anyhow!("run_command: {e}"))?;
+
+            let (tx, mut rx) = bidi.split();
+
+            // Send the command in the first message.
+            let mut req = ExecCommandRequest::new();
+            req.cmd = cmd;
+            tx.send(&req)
+                .await
+                .map_err(|e| anyhow!("send command: {e}"))?;
+
+            // Forward local stdin to the server in a background task.
+            // tx is moved in; no clone needed since only this task sends stdin.
+            let stdin_task = tokio::spawn(async move {
+                let mut stdin = tokio::io::stdin();
+                let mut buf = vec![0u8; 4096];
+                loop {
+                    match stdin.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            let mut req = ExecCommandRequest::new();
+                            req.stdin = buf[..n].to_vec();
+                            if tx.send(&req).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+
+            let mut stdout = tokio::io::stdout();
+            let mut stderr = tokio::io::stderr();
+            let mut exit_code = 0i32;
+
+            // CSReceiver::recv returns Result<T>, not Result<Option<T>>;
+            // an Err signals that the server closed the stream.
+            loop {
+                let resp = match rx.recv().await {
+                    Ok(r) => r,
+                    Err(_) => break,
+                };
+                match resp.payload {
+                    Some(Payload::Stdout(data)) => {
+                        stdout.write_all(&data).await?;
+                        stdout.flush().await?;
+                    }
+                    Some(Payload::Stderr(data)) => {
+                        stderr.write_all(&data).await?;
+                        stderr.flush().await?;
+                    }
+                    Some(Payload::ExitCode(code)) => {
+                        exit_code = code;
+                        break;
+                    }
+                    None => {}
+                }
+            }
+
+            stdin_task.abort();
+            Ok::<i32, anyhow::Error>(exit_code)
+        })
+}
+
 // kata-ctl handle exec command starts here.
 pub fn handle_exec(exec_args: ExecArguments) -> anyhow::Result<()> {
+    if !exec_args.cmd.is_empty() {
+        let exit_code = do_run_exec_noninteractive(
+            &exec_args.sandbox_id,
+            exec_args.exec_port,
+            exec_args.cmd,
+        )?;
+        std::process::exit(exit_code);
+    }
+
     do_run_exec(exec_args.sandbox_id.as_str(), exec_args.vport)?;
 
     Ok(())

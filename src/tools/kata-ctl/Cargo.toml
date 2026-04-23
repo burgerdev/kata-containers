@@ -33,6 +33,10 @@ agent.workspace = true
 virt_container.workspace = true
 serial_test.workspace = true
 vmm-sys-util.workspace = true
+protocols = { path = "../../libs/protocols", features = ["async"] }
+ttrpc.workspace = true
+protobuf.workspace = true
+async-trait.workspace = true
 epoll = "4.0.1"
 libc.workspace = true
 

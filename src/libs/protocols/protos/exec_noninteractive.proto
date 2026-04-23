@@ -1,0 +1,19 @@
+syntax = "proto3";
+package grpc;
+
+message ExecCommandRequest {
+    repeated string cmd = 1;
+    bytes stdin = 2;
+}
+
+message ExecCommandResponse {
+    oneof payload {
+        bytes stdout = 1;
+        bytes stderr = 2;
+        int32 exit_code = 3;
+    }
+}
+
+service ExecNoninteractiveService {
+    rpc RunCommand(stream ExecCommandRequest) returns (stream ExecCommandResponse);
+}

@@ -28,6 +28,7 @@ const CDI_TIMEOUT_OPTION: &str = "agent.cdi_timeout";
 const LAUNCH_PROCESS_TIMEOUT_OPTION: &str = "agent.launch_process_timeout";
 const VISIBLE_CDI_DEVICES_OPTION: &str = "agent.visible_cdi_devices";
 const DEBUG_CONSOLE_VPORT_OPTION: &str = "agent.debug_console_vport";
+const EXEC_NONINTERACTIVE_VPORT_OPTION: &str = "agent.exec_noninteractive_vport";
 const LOG_VPORT_OPTION: &str = "agent.log_vport";
 const CONTAINER_PIPE_SIZE_OPTION: &str = "agent.container_pipe_size";
 const CGROUP_NO_V1: &str = "cgroup_no_v1";
@@ -136,6 +137,7 @@ pub struct AgentConfig {
     pub launch_process_timeout: time::Duration,
     pub visible_cdi_devices: bool,
     pub debug_console_vport: i32,
+    pub exec_noninteractive_vport: i32,
     pub log_vport: i32,
     pub container_pipe_size: i32,
     pub server_addr: String,
@@ -171,6 +173,7 @@ pub struct AgentConfigBuilder {
     pub launch_process_timeout: Option<time::Duration>,
     pub visible_cdi_devices: Option<bool>,
     pub debug_console_vport: Option<i32>,
+    pub exec_noninteractive_vport: Option<i32>,
     pub log_vport: Option<i32>,
     pub container_pipe_size: Option<i32>,
     pub server_addr: Option<String>,
@@ -267,6 +270,7 @@ impl Default for AgentConfig {
             launch_process_timeout: DEFAULT_LAUNCH_PROCESS_TIMEOUT,
             visible_cdi_devices: false,
             debug_console_vport: 0,
+            exec_noninteractive_vport: 0,
             log_vport: 0,
             container_pipe_size: DEFAULT_CONTAINER_PIPE_SIZE,
             server_addr: format!("{VSOCK_ADDR}:{DEFAULT_AGENT_VSOCK_PORT}"),
@@ -310,6 +314,7 @@ impl FromStr for AgentConfig {
         config_override!(agent_config_builder, agent_config, launch_process_timeout);
         config_override!(agent_config_builder, agent_config, visible_cdi_devices);
         config_override!(agent_config_builder, agent_config, debug_console_vport);
+        config_override!(agent_config_builder, agent_config, exec_noninteractive_vport);
         config_override!(agent_config_builder, agent_config, log_vport);
         config_override!(agent_config_builder, agent_config, container_pipe_size);
         config_override!(agent_config_builder, agent_config, server_addr);
@@ -512,6 +517,13 @@ impl AgentConfig {
                 param,
                 DEBUG_CONSOLE_VPORT_OPTION,
                 config.debug_console_vport,
+                get_number_value,
+                |port: &i32| *port > 0
+            );
+            parse_cmdline_param!(
+                param,
+                EXEC_NONINTERACTIVE_VPORT_OPTION,
+                config.exec_noninteractive_vport,
                 get_number_value,
                 |port: &i32| *port > 0
             );
