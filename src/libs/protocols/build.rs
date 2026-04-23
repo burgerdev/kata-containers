@@ -206,6 +206,7 @@ fn real_main() -> Result<(), std::io::Error> {
                 "protos/health.proto",
                 "protos/confidential_data_hub.proto",
                 "protos/remote.proto",
+                "protos/exec_noninteractive.proto",
             ],
             true,
         )?;
@@ -217,6 +218,10 @@ fn real_main() -> Result<(), std::io::Error> {
             "src/confidential_data_hub_ttrpc_async.rs",
         )?;
         fs::rename("src/remote_ttrpc.rs", "src/remote_ttrpc_async.rs")?;
+        fs::rename(
+            "src/exec_noninteractive_ttrpc.rs",
+            "src/exec_noninteractive_ttrpc_async.rs",
+        )?;
     }
 
     codegen(
@@ -226,6 +231,8 @@ fn real_main() -> Result<(), std::io::Error> {
             "protos/health.proto",
             "protos/confidential_data_hub.proto",
             "protos/remote.proto",
+            // TODO(burgerdev): the generated sync version of this does not work, maybe due to streaming RPCs.
+            // "protos/exec_noninteractive.proto",
         ],
         false,
     )?;

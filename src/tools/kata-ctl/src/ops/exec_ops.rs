@@ -16,11 +16,19 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use http_body_util::BodyExt;
 use hyper::StatusCode;
 use nix::sys::socket::{connect, socket, AddressFamily, SockFlag, SockType, VsockAddr};
+use protocols::{
+    exec_noninteractive::{
+        exec_command_response::Output, exit_status::Status, stream_event::Event,
+        ExecCommandRequest, StreamEvent,
+    },
+    exec_noninteractive_ttrpc_async::ExecNoninteractiveServiceClient,
+};
 use slog::{debug, error, o};
+use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use vmm_sys_util::terminal::Terminal;
 
 use crate::args::ExecArguments;
@@ -349,18 +357,10 @@ async fn get_agent_socket(sandbox_id: &str) -> anyhow::Result<String> {
     Ok(agent_sock)
 }
 
-fn get_server_socket(sandbox_id: &str) -> anyhow::Result<String> {
-    let server_url = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?
-        .block_on(get_agent_socket(sandbox_id))
-        .context("get connection vsock")?;
-
-    Ok(server_url)
-}
-
-fn do_run_exec(sandbox_id: &str, dbg_console_vport: u32) -> anyhow::Result<()> {
-    let server_url = get_server_socket(sandbox_id).context("get debug console socket URL")?;
+async fn do_run_exec(sandbox_id: &str, dbg_console_vport: u32) -> anyhow::Result<()> {
+    let server_url = get_agent_socket(sandbox_id)
+        .await
+        .context("get debug console socket URL")?;
     if server_url.is_empty() {
         return Err(anyhow!("server url is empty."));
     }
@@ -385,11 +385,166 @@ fn do_run_exec(sandbox_id: &str, dbg_console_vport: u32) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn ttrpc_client_connect_async(
+    server_url: &str,
+    exec_port: u32,
+) -> anyhow::Result<ttrpc::r#async::Client> {
+    // TODO(burgerdev): consolidate with setup_client.
+    let url_fields: Vec<&str> = server_url.split("://").collect();
+    if url_fields.len() != 2 {
+        return Err(anyhow!("invalid URI"));
+    }
+
+    let scheme = url_fields[0].to_uppercase();
+    let sock_addr: Vec<&str> = url_fields[1].split(':').collect();
+    if sock_addr.len() != 2 {
+        return Err(anyhow!("invalid server address URI"));
+    }
+
+    match scheme.as_str() {
+        SCHEME_VSOCK => {
+            let sock_cid: u32 = match sock_addr[0] {
+                "-1" | "" => libc::VMADDR_CID_ANY,
+                s => s
+                    .parse::<u32>()
+                    .with_context(|| format!("invalid vsock CID: {s}"))?,
+            };
+            let addr = format!("vsock://{}:{}", sock_cid, exec_port);
+            ttrpc::r#async::Client::connect(&addr)
+                .await
+                .map_err(|e| anyhow!("ttrpc connect to {addr}: {e}"))
+        }
+        _ => Err(anyhow!("unsupported URI scheme: {}", scheme)),
+    }
+}
+
+async fn do_run_exec_noninteractive(
+    sandbox_id: &str,
+    exec_port: u32,
+    cmd: Vec<String>,
+) -> anyhow::Result<i32> {
+    if exec_port == 0 {
+        return Err(anyhow!(
+            "--kata-debug-port must be set to use non-interactive exec"
+        ));
+    }
+
+    let server_url = get_agent_socket(sandbox_id)
+        .await
+        .context("get agent socket URL")?;
+    if server_url.is_empty() {
+        return Err(anyhow!("server url is empty"));
+    }
+
+    let client = ttrpc_client_connect_async(&server_url, exec_port).await?;
+    let exec_client = ExecNoninteractiveServiceClient::new(client);
+    let ctx = ttrpc::context::with_timeout(0);
+    let bidi = exec_client
+        .run_command(ctx)
+        .await
+        .map_err(|e| anyhow!("run_command: {e}"))?;
+
+    let (tx, mut rx) = bidi.split();
+
+    // Send the command in the first message.
+    let mut req = ExecCommandRequest::new();
+    req.mut_cmd().set_args(cmd);
+    tx.send(&req).await.context("sending initial command")?;
+
+    // Forward local stdin to the server in a background task.
+    let stdin_task: tokio::task::JoinHandle<std::prelude::v1::Result<(), anyhow::Error>> =
+        tokio::spawn(async move {
+            let mut stdin = tokio::io::stdin();
+            let mut buf = vec![0u8; 4096];
+            loop {
+                match stdin.read(&mut buf).await {
+                    Ok(0) => {
+                        let mut req = ExecCommandRequest::new();
+                        req.mut_stdin().set_eof(true);
+                        tx.send(&req).await.context("closing remote stdin")?
+                    }
+                    Ok(n) => {
+                        let mut req = ExecCommandRequest::new();
+                        req.mut_stdin().set_data(buf[..n].to_vec());
+                        tx.send(&req).await.context("forwarding stdin")?
+                    }
+                    Err(e) => Err(e).context("reading stdin")?,
+                }
+            }
+        });
+
+    // Set up message forwarders.
+    let (stdout_tx, stdout_rx) = tokio::sync::mpsc::channel(10);
+    let stdout_task = tokio::spawn(forward(stdout_rx, tokio::io::stdout()));
+    let (stderr_tx, stderr_rx) = tokio::sync::mpsc::channel(10);
+    let stderr_task = tokio::spawn(forward(stderr_rx, tokio::io::stderr()));
+
+    let tee_task = tokio::spawn(async move {
+        let exit_code = loop {
+            match rx.recv().await?.output {
+                Some(Output::Stdout(evt)) => stdout_tx.send(evt).await?,
+                Some(Output::Stderr(evt)) => stderr_tx.send(evt).await?,
+                Some(Output::ExitStatus(status)) => {
+                    let exit_code = match status.status {
+                        Some(Status::Signaled(signo)) => 128 + signo,
+                        Some(Status::Terminated(code)) => code,
+                        Some(Status::Unknown(_message)) => -1, // TODO(burgerdev): log message.
+                        Some(_) | None => -1,
+                    };
+                    break exit_code;
+                }
+                Some(_) | None => bail!(""),
+            }
+        };
+        Ok(exit_code)
+    });
+
+    // stdin_task may not complete if stdin is not provided by the caller, which is common for CLI
+    // utilities. Therefore, we just wait for stdout and stderr to close (which will happen latest
+    // when the server side command terminates), and for the exit code. Once the exit code
+    // arrived, sending more data from stdin won't make any sense, so we just cancel the future.
+    let (exit_code_res, _, _) = tokio::join!(tee_task, stdout_task, stderr_task);
+    stdin_task.abort();
+    exit_code_res?
+}
+
+async fn forward<W>(
+    mut rx: tokio::sync::mpsc::Receiver<StreamEvent>,
+    mut w: W,
+) -> anyhow::Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
+    loop {
+        match rx.recv().await.and_then(|msg| msg.event) {
+            Some(Event::Data(data)) => {
+                w.write_all(&data).await?;
+                w.flush().await?;
+            }
+            Some(Event::Error(e)) => return Err(anyhow!("receiving data from agent: {}", e)),
+            _ => break, // EOF or channel closed, we're done forwarding.
+        }
+    }
+    Ok(())
+}
+
 // kata-ctl handle exec command starts here.
 pub fn handle_exec(exec_args: ExecArguments) -> anyhow::Result<()> {
-    do_run_exec(exec_args.sandbox_id.as_str(), exec_args.vport)?;
-
-    Ok(())
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    rt.block_on(async move {
+        if !exec_args.cmd.is_empty() {
+            match do_run_exec_noninteractive(&exec_args.sandbox_id, exec_args.vport, exec_args.cmd)
+                .await
+            {
+                Ok(exit_code) => std::process::exit(exit_code),
+                e => e.map(|_| ()),
+            }
+        } else {
+            do_run_exec(exec_args.sandbox_id.as_str(), exec_args.vport).await
+        }
+    })
 }
 
 #[cfg(test)]

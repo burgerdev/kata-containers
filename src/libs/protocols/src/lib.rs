@@ -39,3 +39,8 @@ pub mod confidential_data_hub_ttrpc;
 
 #[cfg(feature = "async")]
 pub mod confidential_data_hub_ttrpc_async;
+
+pub mod exec_noninteractive;
+
+#[cfg(feature = "async")]
+pub mod exec_noninteractive_ttrpc_async;

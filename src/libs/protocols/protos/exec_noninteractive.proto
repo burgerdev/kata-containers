@@ -1,0 +1,42 @@
+syntax = "proto3";
+package grpc;
+
+message StreamEvent {
+    oneof event {
+        bytes data = 1;
+        bool eof = 2;
+        string error = 3;
+    }
+}
+
+message Command {
+    repeated string args = 1;
+}
+
+message ExitStatus {
+    oneof status {
+        int32 terminated = 1;
+        int32 signaled = 2;
+        string unknown = 3;
+    }
+}
+
+message ExecCommandRequest {
+    oneof input {
+        Command cmd = 1;
+        StreamEvent stdin = 2;
+    }
+}
+
+message ExecCommandResponse {
+    oneof output {
+        StreamEvent stdout = 1;
+        StreamEvent stderr = 2;
+        ExitStatus exit_status = 3;
+    }
+}
+
+// TODO(burgerdev): explain the contract.
+service ExecNoninteractiveService {
+    rpc RunCommand(stream ExecCommandRequest) returns (stream ExecCommandResponse);
+}
