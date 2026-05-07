@@ -13,6 +13,8 @@ use protocols::exec_noninteractive::exec_command_response::Payload;
 use protocols::exec_noninteractive::{ExecCommandRequest, ExecCommandResponse};
 use protocols::exec_noninteractive_ttrpc_async as exec_ttrpc;
 use slog::Logger;
+use ttrpc::asynchronous::SSSender;
+use std::io::Read;
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -105,6 +107,8 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
 
         let stdin_fwd = tokio::spawn(async move {
             while let Ok(Some(req)) = rx.recv().await {
+                // TODO(burgerdev): fail if cmd is set?
+                // TODO(burgerdev): should this only break on EPIPE or something like that?
                 if child_stdin.write_all(&req.stdin).await.is_err() {
                     break;
                 }
@@ -114,44 +118,21 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
         });
 
         let stdout_fwd = tokio::spawn(async move {
-            let mut buf = vec![0u8; 8192];
-            loop {
-                match child_stdout.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        let mut resp = ExecCommandResponse::new();
-                        resp.payload = Some(Payload::Stdout(buf[..n].to_vec()));
-                        if tx_stdout.send(&resp).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
+            forward(child_stdout, tx_stdout, Payload::Stdout);
         });
 
         let stderr_fwd = tokio::spawn(async move {
-            let mut buf = vec![0u8; 8192];
-            loop {
-                match child_stderr.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        let mut resp = ExecCommandResponse::new();
-                        resp.payload = Some(Payload::Stderr(buf[..n].to_vec()));
-                        if tx_stderr.send(&resp).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
+            forward(child_stderr, tx_stderr, Payload::Stderr);
         });
 
         let _ = tokio::join!(stdout_fwd, stderr_fwd);
+        // TODO(burgerdev): just because stdout is closed does not mean stdin is done!
         stdin_fwd.abort();
 
         let exit_code = child
             .wait()
             .await
-            .map(|s| s.code().unwrap_or(-1))
+            .map(|s| s.code().unwrap_or(-1)) // TODO(burgerdev): use ExitStatusExt instead of default -1.
             .unwrap_or(-1);
 
         info!(logger, "exec command exited"; "exit_code" => exit_code);
@@ -163,6 +144,26 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
         Ok(())
     }
 }
+
+async fn forward<R, C>(r: R, tx: SSSender<ExecCommandResponse>, cons: C) -> ()
+where R: Read, C: FnOnce(Vec<u8>) -> Payload {
+    let mut buf = vec![0u8; 8192];
+    loop {
+        match child_stderr.read(&mut buf).await {
+            // TODO(burgerdev): inspect the error!
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                let mut resp = ExecCommandResponse::new();
+                resp.payload = Some(cons(buf[..n].to_vec()));
+                if tx_stderr.send(&resp).await.is_err() {
+                    break;
+                }
+            }
+        }
+    }
+    // TODO(burgerdev): signal closing by sending an empty vec.
+}
+
 
 #[cfg(test)]
 mod tests {
