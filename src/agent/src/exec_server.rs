@@ -78,15 +78,15 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
             .map_err(|e| ttrpc::Error::Others(e.to_string()))?
             .ok_or_else(|| ttrpc::Error::Others("no command provided".into()))?;
 
-        if first.cmd.is_empty() {
+        if !first.has_cmd() {
             return Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::INVALID_ARGUMENT,
                 "command is empty",
             )));
         }
 
-        let mut child = tokio::process::Command::new(&first.cmd[0])
-            .args(&first.cmd[1..])
+        let mut child = tokio::process::Command::new(&first.cmd().args()[0])
+            .args(&first.args()[1..])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -97,20 +97,28 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
         let mut child_stdout = child.stdout.take().unwrap();
         let mut child_stderr = child.stderr.take().unwrap();
 
-        if !first.stdin.is_empty() {
-            let _ = child_stdin.write_all(&first.stdin).await;
-        }
-
         let tx_stdout = tx.clone();
         let tx_stderr = tx.clone();
         let logger = self.logger.clone();
 
         let stdin_fwd = tokio::spawn(async move {
             while let Ok(Some(req)) = rx.recv().await {
-                // TODO(burgerdev): fail if cmd is set?
-                // TODO(burgerdev): should this only break on EPIPE or something like that?
-                if child_stdin.write_all(&req.stdin).await.is_err() {
-                    break;
+                if !req.has_stdin() {
+                    continue
+                }
+                let event = req.stdin();
+                if event.has_eof() && event.eof() {
+                    break
+                }
+                if event.has_error() {
+                    // TODO(burgerdev): now what?
+                    break
+                }
+                if event.has_data() {
+                    // TODO(burgerdev): should this only break on EPIPE or something like that?
+                    if child_stdin.write_all(req.data()).await.is_err() {
+                        break;
+                    }
                 }
             }
             // EOF on the receive stream closes process stdin
@@ -127,6 +135,8 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
 
         let _ = tokio::join!(stdout_fwd, stderr_fwd);
         // TODO(burgerdev): just because stdout is closed does not mean stdin is done!
+        // However, reading the docs of .wait(), it seems like stdin will be closed now anyway.
+        // We should insist on a clean stdin close before continuing!
         stdin_fwd.abort();
 
         let exit_code = child
@@ -149,19 +159,19 @@ async fn forward<R, C>(r: R, tx: SSSender<ExecCommandResponse>, cons: C) -> ()
 where R: Read, C: FnOnce(Vec<u8>) -> Payload {
     let mut buf = vec![0u8; 8192];
     loop {
-        match child_stderr.read(&mut buf).await {
-            // TODO(burgerdev): inspect the error!
+        match r.read(&mut buf).await {
+            // TODO(burgerdev): inspect the error and forward to caller
             Ok(0) | Err(_) => break,
             Ok(n) => {
                 let mut resp = ExecCommandResponse::new();
                 resp.payload = Some(cons(buf[..n].to_vec()));
-                if tx_stderr.send(&resp).await.is_err() {
+                if tx.send(&resp).await.is_err() {
                     break;
                 }
             }
         }
     }
-    // TODO(burgerdev): signal closing by sending an empty vec.
+    // TODO(burgerdev): signal closing
 }
 
 
