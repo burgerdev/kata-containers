@@ -61,7 +61,18 @@ async fn handle_sigchild(logger: Logger, sandbox: Arc<Mutex<Sandbox>>) -> Result
 
             let ret: i32 = match wait_status {
                 WaitStatus::Exited(_, c) => c,
-                WaitStatus::Signaled(_, sig, _) => sig as i32,
+                WaitStatus::Signaled(_, sig, _) => {
+                    // The containerd APIs don't allow returning a full wait_status, only an exit
+                    // code. According to POSIX, the exit code must be greater than 128 when the
+                    // process was terminated due to a signal [1]. While this is specified for the
+                    // shell, it makes sense to adhere to this in other situations where a
+                    // wait_status needs to be compressed to a single number. Thus, we adhere to
+                    // the convention [2] of setting the return code to 128+SIGNO in this case.
+                    //
+                    // [1]: https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html#tag_19_08_02
+                    // [2]: https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html
+                    sig as i32 + 128
+                }
                 _ => {
                     info!(logger, "got wrong status for process";
                                   "child-status" => format!("{:?}", wait_status));
