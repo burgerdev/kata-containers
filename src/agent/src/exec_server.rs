@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Edgeless Systems GmbH
+// Copyright (c) 2026 Edgeless Systems GmbH
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -9,16 +9,14 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use nix::sys::socket::{self, AddressFamily, SockFlag, SockType, VsockAddr};
-use protocols::exec_noninteractive::exec_command_response::Payload;
-use protocols::exec_noninteractive::{ExecCommandRequest, ExecCommandResponse};
+use protocols::exec_noninteractive::{ExecCommandRequest, ExecCommandResponse, StreamEvent};
 use protocols::exec_noninteractive_ttrpc_async as exec_ttrpc;
 use slog::Logger;
-use ttrpc::asynchronous::SSSender;
-use std::io::Read;
 use std::process::Stdio;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch::Receiver;
+use ttrpc::asynchronous::SSSender;
 use ttrpc::r#async::ServerStream;
 use ttrpc::r#async::{Server as TtrpcServer, TtrpcContext};
 
@@ -86,7 +84,7 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
         }
 
         let mut child = tokio::process::Command::new(&first.cmd().args()[0])
-            .args(&first.args()[1..])
+            .args(&first.cmd().args()[1..])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -94,8 +92,8 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
             .map_err(|e| ttrpc::Error::Others(format!("spawn failed: {e}")))?;
 
         let mut child_stdin = child.stdin.take().unwrap();
-        let mut child_stdout = child.stdout.take().unwrap();
-        let mut child_stderr = child.stderr.take().unwrap();
+        let child_stdout = child.stdout.take().unwrap();
+        let child_stderr = child.stderr.take().unwrap();
 
         let tx_stdout = tx.clone();
         let tx_stderr = tx.clone();
@@ -104,19 +102,19 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
         let stdin_fwd = tokio::spawn(async move {
             while let Ok(Some(req)) = rx.recv().await {
                 if !req.has_stdin() {
-                    continue
+                    continue;
                 }
                 let event = req.stdin();
                 if event.has_eof() && event.eof() {
-                    break
+                    break;
                 }
                 if event.has_error() {
                     // TODO(burgerdev): now what?
-                    break
+                    break;
                 }
                 if event.has_data() {
                     // TODO(burgerdev): should this only break on EPIPE or something like that?
-                    if child_stdin.write_all(req.data()).await.is_err() {
+                    if child_stdin.write_all(event.data()).await.is_err() {
                         break;
                     }
                 }
@@ -126,11 +124,19 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
         });
 
         let stdout_fwd = tokio::spawn(async move {
-            forward(child_stdout, tx_stdout, Payload::Stdout);
+            forward(child_stdout, tx_stdout, |evt| {
+                let mut resp = ExecCommandResponse::new();
+                resp.set_stdout(evt);
+                resp
+            }).await;
         });
 
         let stderr_fwd = tokio::spawn(async move {
-            forward(child_stderr, tx_stderr, Payload::Stderr);
+            forward(child_stderr, tx_stderr, |evt| {
+                let mut resp = ExecCommandResponse::new();
+                resp.set_stderr(evt);
+                resp
+            }).await;
         });
 
         let _ = tokio::join!(stdout_fwd, stderr_fwd);
@@ -148,37 +154,49 @@ impl exec_ttrpc::ExecNoninteractiveService for ExecService {
         info!(logger, "exec command exited"; "exit_code" => exit_code);
 
         let mut resp = ExecCommandResponse::new();
-        resp.payload = Some(Payload::ExitCode(exit_code));
+        resp.set_exit_code(exit_code);
         let _ = tx.send(&resp).await;
 
         Ok(())
     }
 }
 
-async fn forward<R, C>(r: R, tx: SSSender<ExecCommandResponse>, cons: C) -> ()
-where R: Read, C: FnOnce(Vec<u8>) -> Payload {
+async fn forward<R, C>(mut r: R, tx: SSSender<ExecCommandResponse>, cons: C) -> ()
+where
+    R: AsyncRead + Unpin,
+    C: Fn(StreamEvent) -> ExecCommandResponse,
+{
     let mut buf = vec![0u8; 8192];
     loop {
         match r.read(&mut buf).await {
             // TODO(burgerdev): inspect the error and forward to caller
-            Ok(0) | Err(_) => break,
+            Ok(0) => {
+                let mut event = StreamEvent::new();
+                event.set_eof(true);
+                tx.send(&cons(event)).await; // TODO(burgerdev): log error
+                break;
+            }
+            Err(e) => {
+                let mut event = StreamEvent::new();
+                event.set_error(e.to_string());
+                tx.send(&cons(event)).await; // TODO(burgerdev): log error
+                break;
+            }
             Ok(n) => {
-                let mut resp = ExecCommandResponse::new();
-                resp.payload = Some(cons(buf[..n].to_vec()));
-                if tx.send(&resp).await.is_err() {
+                let mut event = StreamEvent::new();
+                event.set_data(buf[..n].to_vec());
+                if tx.send(&cons(event)).await.is_err() {
                     break;
                 }
             }
         }
     }
-    // TODO(burgerdev): signal closing
+    drop(r);
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use protocols::exec_noninteractive::exec_command_response::Payload;
     use protocols::exec_noninteractive::ExecCommandRequest;
     use protocols::exec_noninteractive_ttrpc_async::ExecNoninteractiveServiceClient;
     use ttrpc::r#async::Server as TtrpcServer;
@@ -192,10 +210,7 @@ mod tests {
             logger: test_logger(),
         });
         let svc = exec_ttrpc::create_exec_noninteractive_service(service);
-        let mut server = TtrpcServer::new()
-            .bind(addr)
-            .unwrap()
-            .register_service(svc);
+        let mut server = TtrpcServer::new().bind(addr).unwrap().register_service(svc);
         server.start().await.unwrap();
         server
     }
@@ -203,11 +218,7 @@ mod tests {
     // Run a command through the exec service and collect all output.
     // Calls close_send() after the initial request so commands that read
     // stdin (e.g. cat) receive EOF and exit cleanly.
-    async fn run(
-        addr: &str,
-        cmd: Vec<&str>,
-        stdin: &[u8],
-    ) -> (Vec<u8>, Vec<u8>, i32) {
+    async fn run(addr: &str, cmd: Vec<&str>, stdin: &[u8]) -> (Vec<u8>, Vec<u8>, i32) {
         let client = ttrpc::r#async::Client::connect(addr).unwrap();
         let svc = ExecNoninteractiveServiceClient::new(client);
         let bidi = svc
@@ -217,8 +228,10 @@ mod tests {
         let (tx, mut rx) = bidi.split();
 
         let mut req = ExecCommandRequest::new();
-        req.cmd = cmd.iter().map(|s| s.to_string()).collect();
-        req.stdin = stdin.to_vec();
+        req.mut_cmd()
+            .set_args(cmd.iter().map(|s| s.to_string()).collect());
+        // TODO(burgerdev): do we need stdin here?
+        // req.stdin = stdin.to_vec();
         tx.send(&req).await.unwrap();
         // Signal EOF on the client send direction so stdin-consuming
         // commands know there is no more input.  Ignore errors here:
@@ -264,8 +277,7 @@ mod tests {
         let addr = "unix://@/tmp/kata-exec-test-exit-code";
         let mut server = start_test_server(addr).await;
 
-        let (_stdout, _stderr, code) =
-            run(addr, vec!["sh", "-c", "exit 42"], &[]).await;
+        let (_stdout, _stderr, code) = run(addr, vec!["sh", "-c", "exit 42"], &[]).await;
 
         assert_eq!(code, 42);
 
@@ -277,8 +289,7 @@ mod tests {
         let addr = "unix://@/tmp/kata-exec-test-stderr";
         let mut server = start_test_server(addr).await;
 
-        let (_stdout, stderr, code) =
-            run(addr, vec!["sh", "-c", "echo error >&2"], &[]).await;
+        let (_stdout, stderr, code) = run(addr, vec!["sh", "-c", "echo error >&2"], &[]).await;
 
         assert_eq!(code, 0);
         assert_eq!(String::from_utf8(stderr).unwrap().trim(), "error");
@@ -316,7 +327,8 @@ mod tests {
         let (tx, mut rx) = bidi.split();
 
         let mut req = ExecCommandRequest::new();
-        req.cmd = vec!["__nonexistent_command__".to_string()];
+        req.mut_cmd()
+            .set_args(vec!["__nonexistent_command__".to_string()]);
         tx.send(&req).await.unwrap();
 
         // The server fails to spawn and returns a ttrpc error; the client

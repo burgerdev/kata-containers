@@ -231,7 +231,8 @@ fn real_main() -> Result<(), std::io::Error> {
             "protos/health.proto",
             "protos/confidential_data_hub.proto",
             "protos/remote.proto",
-            "protos/exec_noninteractive.proto",
+            // TODO(burgerdev): the generated sync version of this does not work, maybe due to streaming RPCs.
+            // "protos/exec_noninteractive.proto",
         ],
         false,
     )?;
