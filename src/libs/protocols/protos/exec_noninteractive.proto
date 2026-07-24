@@ -13,6 +13,14 @@ message Command {
     repeated string args = 1;
 }
 
+message ExitStatus {
+    oneof status {
+        int32 terminated = 1;
+        int32 signaled = 2;
+        string unknown = 3;
+    }
+}
+
 message ExecCommandRequest {
     oneof input {
         Command cmd = 1;
@@ -24,10 +32,11 @@ message ExecCommandResponse {
     oneof output {
         StreamEvent stdout = 1;
         StreamEvent stderr = 2;
-        int32 exit_code = 3;
+        ExitStatus exit_status = 3;
     }
 }
 
+// TODO(burgerdev): explain the contract.
 service ExecNoninteractiveService {
     rpc RunCommand(stream ExecCommandRequest) returns (stream ExecCommandResponse);
 }
