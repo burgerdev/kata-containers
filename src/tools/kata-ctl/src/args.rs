@@ -55,7 +55,7 @@ pub enum Commands {
     /// Display settings
     Env(EnvArgument),
 
-    /// Enter into guest VM by debug console
+    /// Enter into guest VM by debug console or command executor.
     Exec(ExecArguments),
 
     /// Manage VM factory
@@ -213,9 +213,6 @@ pub struct ExecArguments {
     #[clap(short = 'p', long = "kata-debug-port", default_value_t = 1026)]
     /// kata debug console vport same as configuration, default is 1026.
     pub vport: u32,
-    #[clap(long = "kata-exec-port", default_value_t = 0)]
-    /// kata non-interactive exec vport (agent.exec_noninteractive_vport). Required when cmd is set.
-    pub exec_port: u32,
     #[clap(last = true)]
     /// command to run non-interactively inside the sandbox VM; if omitted, opens an interactive debug console.
     pub cmd: Vec<String>,
